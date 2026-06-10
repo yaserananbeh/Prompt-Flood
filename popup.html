@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    body {
+      width: 300px;
+      padding: 10px;
+      font-family: sans-serif;
+    }
+
+    h3 {
+      margin-top: 0;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 8px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .connection-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 8px;
+      border-radius: 6px;
+      background: #f3f3f3;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: gray;
+    }
+
+    .dot.connected {
+      background: #22c55e;
+    }
+
+    .dot.disconnected {
+      background: #ef4444;
+    }
+
+    .dot.checking {
+      background: #f59e0b;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    /* Queue Visualizer Styles */
+    hr { margin: 15px 0; border: 0; border-top: 1px solid #eee; }
+    #queueContainer { background: #f9f9f9; padding: 10px; border-radius: 4px; }
+    #queueContainer h4 { margin: 0 0 10px 0; font-size: 14px; }
+    #queueList { margin: 0; padding-left: 20px; font-size: 13px; color: #444; }
+    #queueList li { margin-bottom: 6px; word-break: break-word; }
+  </style>
+</head>
+
+<body>
+  <h3>Prompt Queue</h3>
+
+  <div class="connection-box">
+    <span id="connectionDot" class="dot checking"></span>
+    <span id="connectionText">Checking connection...</span>
+  </div>
+
+  <textarea id="promptText" placeholder="Enter your next prompt here..."></textarea>
+
+  <button id="queueBtn">Add to Queue</button>
+
+  <div id="status"></div>
+
+  <hr>
+  <div id="queueContainer">
+    <h4>Up Next:</h4>
+    <ul id="queueList">
+      <li><em>Queue is empty</em></li>
+    </ul>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>
