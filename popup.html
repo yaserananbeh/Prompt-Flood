@@ -4,7 +4,7 @@
 <head>
   <style>
     body {
-      width: 300px;
+      width: 380px;
       padding: 10px;
       font-family: sans-serif;
     }
@@ -18,20 +18,26 @@
       height: 80px;
       margin-bottom: 10px;
       box-sizing: border-box;
+      resize: vertical;
     }
 
     button {
-      width: 100%;
       padding: 8px;
       background-color: #007bff;
       color: white;
       border: none;
       cursor: pointer;
       border-radius: 4px;
+      font-size: 12px;
     }
 
-    button:hover {
+    button:hover:not(:disabled) {
       background-color: #0056b3;
+    }
+
+    button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
     }
 
     .connection-box {
@@ -51,6 +57,7 @@
       height: 10px;
       border-radius: 50%;
       background: gray;
+      flex-shrink: 0;
     }
 
     .dot.connected {
@@ -65,17 +72,160 @@
       background: #f59e0b;
     }
 
+    .queue-status {
+      margin: 8px 0;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .queue-status.error {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .queue-status.paused {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
     #status {
       margin-top: 10px;
       font-size: 12px;
+      min-height: 16px;
     }
 
-    /* Queue Visualizer Styles */
-    hr { margin: 15px 0; border: 0; border-top: 1px solid #eee; }
-    #queueContainer { background: #f9f9f9; padding: 10px; border-radius: 4px; }
-    #queueContainer h4 { margin: 0 0 10px 0; font-size: 14px; }
-    #queueList { margin: 0; padding-left: 20px; font-size: 13px; color: #444; }
-    #queueList li { margin-bottom: 6px; word-break: break-word; }
+    .toolbar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .toolbar button {
+      flex: 1;
+    }
+
+    .toolbar button.secondary {
+      background-color: #6b7280;
+    }
+
+    .toolbar button.secondary:hover:not(:disabled) {
+      background-color: #4b5563;
+    }
+
+    .toolbar button.danger {
+      background-color: #dc2626;
+    }
+
+    .toolbar button.danger:hover:not(:disabled) {
+      background-color: #b91c1c;
+    }
+
+    #queueBtn {
+      width: 100%;
+    }
+
+    hr {
+      margin: 15px 0;
+      border: 0;
+      border-top: 1px solid #eee;
+    }
+
+    #queueContainer {
+      background: #f9f9f9;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    #queueContainer h4 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+    }
+
+    #queueList {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-size: 13px;
+      color: #444;
+    }
+
+    .queue-empty {
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .queue-item {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+
+    .queue-item.active {
+      border-color: #007bff;
+      box-shadow: 0 0 0 1px #007bff inset;
+    }
+
+    .queue-item-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .queue-badge {
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      flex-shrink: 0;
+    }
+
+    .queue-badge.next {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .queue-preview {
+      word-break: break-word;
+      line-height: 1.35;
+    }
+
+    .queue-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .queue-actions button {
+      flex: 1;
+      min-width: 52px;
+      padding: 4px 6px;
+      background-color: #f3f4f6;
+      color: #111827;
+      border: 1px solid #d1d5db;
+    }
+
+    .queue-actions button:hover:not(:disabled) {
+      background-color: #e5e7eb;
+    }
+
+    .queue-actions button.danger {
+      color: #b91c1c;
+    }
+
+    .queue-actions button.primary {
+      color: #1d4ed8;
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
   </style>
 </head>
 
@@ -87,6 +237,8 @@
     <span id="connectionText">Checking connection...</span>
   </div>
 
+  <div id="queueStatus" class="queue-status" hidden></div>
+
   <textarea id="promptText" placeholder="Enter your next prompt here..."></textarea>
 
   <button id="queueBtn">Add to Queue</button>
@@ -94,10 +246,18 @@
   <div id="status"></div>
 
   <hr>
+
   <div id="queueContainer">
-    <h4>Up Next:</h4>
+    <h4>Queue</h4>
+
+    <div class="toolbar">
+      <button id="pauseBtn" class="secondary" disabled>Pause</button>
+      <button id="retryBtn" class="secondary" disabled>Retry</button>
+      <button id="clearBtn" class="danger" disabled>Clear</button>
+    </div>
+
     <ul id="queueList">
-      <li><em>Queue is empty</em></li>
+      <li class="queue-empty">Queue is empty</li>
     </ul>
   </div>
 
