@@ -3,7 +3,7 @@
   "name": "Prompt Flood",
   "version": "2.5.1",
   "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, DeepSeek, and Perplexity. Personas, checkpoints, history.",
-  "permissions": ["activeTab", "scripting", "tabs", "storage"],
+  "permissions": ["activeTab", "scripting", "sidePanel", "tabs", "storage"],
   "host_permissions": [
     "*://chatgpt.com/*",
     "*://chat.openai.com/*",
@@ -24,12 +24,15 @@
     "128": "assets/icon128.png"
   },
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "assets/icon16.png",
       "48": "assets/icon48.png",
       "128": "assets/icon128.png"
-    }
+    },
+    "default_title": "Prompt Flood"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
   },
   "content_scripts": [
     {

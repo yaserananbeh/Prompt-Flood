@@ -125,8 +125,19 @@ async function broadcastPrompt(payload, tabIds) {
   return results;
 }
 
+async function configureSidePanel() {
+  if (!chrome.sidePanel?.setPanelBehavior) return;
+
+  try {
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  } catch (_error) {
+    // Side panel may be unavailable on older Chrome builds.
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   ensureDefaultPersonas();
+  configureSidePanel();
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -237,3 +248,4 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 ensureDefaultPersonas();
+configureSidePanel();

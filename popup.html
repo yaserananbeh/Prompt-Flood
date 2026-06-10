@@ -51,16 +51,24 @@
       color-scheme: light;
     }
 
+    html,
     body {
-      width: 420px;
+      height: 100%;
       margin: 0;
       padding: 0;
+    }
+
+    body {
+      width: 100%;
+      min-height: 100%;
       font-family: var(--font);
       font-size: 13px;
       line-height: 1.5;
       color: var(--text);
       background: var(--bg);
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .app {
@@ -785,7 +793,7 @@
       margin: 0;
       padding: 0;
       list-style: none;
-      max-height: 280px;
+      max-height: min(50vh, 480px);
       overflow-y: auto;
     }
 
@@ -1267,7 +1275,7 @@
       <img src="assets/logo.png" alt="Prompt Flood logo" width="32" height="32">
       <div class="app-header-text">
         <h1>Prompt Flood</h1>
-        <p>Queue prompts across AI chats</p>
+        <p>Queue prompts across AI chats — stays open in the side panel</p>
       </div>
     </header>
 
