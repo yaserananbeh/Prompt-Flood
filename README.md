@@ -1,6 +1,6 @@
 # Prompt Orchestrator
 
-**Queue, automate, and orchestrate prompts across ChatGPT, Gemini, and Claude — without babysitting every send.**
+**Queue, pause, and broadcast prompts across ChatGPT, Gemini, and Claude.**
 
 A Chrome extension built for multi-step AI workflows: chain prompts, pause for review, reuse personas, broadcast to multiple chats, and pick up exactly where you left off after a refresh.
 
@@ -257,4 +257,4 @@ Issues and pull requests are welcome. When adding a new platform, extend `platfo
 
 Built for power users who treat LLM chats like a pipeline — not a single message at a time.
 
-**Prompt Orchestrator** — queue smarter, pause when it matters, and run prompts across every tab you work in.
+**Prompt Orchestrator** — queue, pause, and broadcast across ChatGPT, Gemini, and Claude.

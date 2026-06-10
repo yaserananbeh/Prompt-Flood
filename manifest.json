@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Prompt Orchestrator",
   "version": "2.3.2",
-  "description": "Queue prompts for ChatGPT, Gemini, and Claude with personas, checkpoints, history, and broadcast.",
+  "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, and Claude. Personas, checkpoints, history.",
   "permissions": ["activeTab", "scripting", "tabs", "storage"],
   "host_permissions": [
     "*://chatgpt.com/*",
