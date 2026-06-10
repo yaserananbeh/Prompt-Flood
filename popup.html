@@ -242,8 +242,46 @@
     .connection-summary {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
+    }
+
+    .go-to-tab-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--primary);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+
+    .go-to-tab-btn:hover:not(:disabled) {
+      background: var(--primary-soft);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: var(--primary-hover);
+    }
+
+    .go-to-tab-btn-compact {
+      width: 22px;
+      height: 22px;
+    }
+
+    .go-to-tab-btn svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+    }
+
+    .go-to-tab-btn-compact svg {
+      width: 11px;
+      height: 11px;
     }
 
     #connectionText {
@@ -376,6 +414,10 @@
 
     /* Status banners */
     .queue-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       padding: 10px 12px;
       border-radius: var(--radius-md);
       font-size: 12px;
@@ -384,6 +426,18 @@
       background: var(--info-soft);
       color: var(--info-text);
       border: 1px solid transparent;
+    }
+
+    .queue-status-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .queue-status-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .queue-status.error {
@@ -592,6 +646,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      margin-bottom: 10px;
     }
 
     .toggle-chip {
@@ -630,6 +685,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       background: var(--surface-muted);
+      margin-bottom: 10px;
     }
 
     .sub-panel-header {
@@ -664,6 +720,18 @@
     #status:not(:empty) {
       padding: 8px 10px;
       margin-top: 4px;
+    }
+
+    #status.has-go-to-tab {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    #status.has-go-to-tab > span {
+      flex: 1;
+      min-width: 0;
     }
 
     #status.success {
@@ -781,6 +849,8 @@
 
     .queue-preview,
     .history-preview {
+      flex: 1;
+      min-width: 0;
       word-break: break-word;
       line-height: 1.4;
       font-size: 12px;
@@ -873,7 +943,15 @@
       overflow-y: auto;
     }
 
-    .broadcast-tab-item,
+    .broadcast-tab-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition);
+    }
+
     .persona-item {
       padding: 8px 4px;
       border-bottom: 1px solid var(--border);
@@ -1074,6 +1152,74 @@
       color: var(--text-muted);
       margin: 0;
     }
+
+    /* LLM launcher */
+    .llm-launcher-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .llm-launcher-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+
+    .llm-launcher-btn:hover:not(:disabled) {
+      background: var(--surface);
+      border-color: var(--llm-accent, var(--primary));
+      box-shadow: var(--shadow-sm);
+    }
+
+    .llm-launcher-btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    .llm-launcher-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .llm-launcher-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      object-fit: contain;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .llm-launcher-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      background: var(--llm-accent, var(--primary));
+      box-shadow: var(--shadow-sm);
+    }
+
+    .llm-launcher-name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+      line-height: 1.2;
+    }
   </style>
 </head>
 
@@ -1098,10 +1244,24 @@
         <div class="connection-main">
           <div class="connection-summary">
             <span id="connectionText">Checking connection...</span>
+            <button type="button" id="goToManagedTabBtn" class="go-to-tab-btn hidden" title="Go to chat tab" aria-label="Go to chat tab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </button>
             <button type="button" id="reconnectBtn" class="link-btn hidden">Reconnect</button>
             <button type="button" id="tabsToggle" class="link-btn hidden">+0 tabs v</button>
           </div>
           <div id="linkedTabsPanel" class="linked-tabs-panel hidden"></div>
+        </div>
+      </div>
+
+      <div id="llmLauncher" class="card hidden">
+        <div class="card-section">
+          <span class="section-label">Start a chat</span>
+          <div id="llmLauncherGrid" class="llm-launcher-grid"></div>
         </div>
       </div>
 

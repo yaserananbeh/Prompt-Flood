@@ -189,6 +189,7 @@
       entry: {
         id: crypto.randomUUID(),
         timestamp: Date.now(),
+        tabId,
         site: platform.name,
         platformId: platform.id,
         chatId: platform.getChatId(window.location.pathname),

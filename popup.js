@@ -9,12 +9,57 @@ const SUPPORTED_HOSTS = [
   "perplexity.ai"
 ];
 const IGNORED_TABS_KEY = "ignoredTabIds";
+const SUPPORTED_LLMS = [
+  {
+    id: "chatgpt",
+    name: "ChatGPT",
+    url: "https://chatgpt.com/",
+    host: "chatgpt.com",
+    accent: "#10a37f"
+  },
+  {
+    id: "gemini",
+    name: "Gemini",
+    url: "https://gemini.google.com/app",
+    host: "gemini.google.com",
+    accent: "#4285f4"
+  },
+  {
+    id: "claude",
+    name: "Claude",
+    url: "https://claude.ai/new",
+    host: "claude.ai",
+    accent: "#d97757"
+  },
+  {
+    id: "kimi",
+    name: "Kimi",
+    url: "https://www.kimi.com/",
+    host: "kimi.com",
+    accent: "#111827"
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    url: "https://chat.deepseek.com/",
+    host: "chat.deepseek.com",
+    accent: "#4d6bfe"
+  },
+  {
+    id: "perplexity",
+    name: "Perplexity",
+    url: "https://www.perplexity.ai/",
+    host: "perplexity.ai",
+    accent: "#20808d"
+  }
+];
 
 const queueBtn = document.getElementById("queueBtn");
 const promptText = document.getElementById("promptText");
 const statusDiv = document.getElementById("status");
 const connectionDot = document.getElementById("connectionDot");
 const connectionText = document.getElementById("connectionText");
+const goToManagedTabBtn = document.getElementById("goToManagedTabBtn");
 const tabsToggle = document.getElementById("tabsToggle");
 const reconnectBtn = document.getElementById("reconnectBtn");
 const linkedTabsPanel = document.getElementById("linkedTabsPanel");
@@ -55,8 +100,11 @@ const editPromptModalTitle = document.getElementById("editPromptModalTitle");
 const editPromptInput = document.getElementById("editPromptInput");
 const editPromptCancel = document.getElementById("editPromptCancel");
 const editPromptSave = document.getElementById("editPromptSave");
+const llmLauncher = document.getElementById("llmLauncher");
+const llmLauncherGrid = document.getElementById("llmLauncherGrid");
 
 let activeTabId = null;
+let openingLlmId = null;
 let managedTabId = null;
 let isConnected = false;
 let latestState = null;
@@ -68,13 +116,195 @@ let ignoredTabsCache = [];
 let lastQueueStateSignature = "";
 let lastLinkedTabsSignature = "";
 
-function setStatus(message, tone = "") {
-  statusDiv.innerText = message;
-  statusDiv.classList.remove("success", "error");
+const GO_TO_TAB_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+
+async function goToTab(tabId) {
+  if (!Number.isInteger(tabId) || tabId <= 0) return false;
+
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    await chrome.tabs.update(tabId, { active: true });
+    if (tab.windowId) {
+      await chrome.windows.update(tab.windowId, { focused: true });
+    }
+    return true;
+  } catch (_error) {
+    setStatus("That tab is no longer open.", "error");
+    return false;
+  }
+}
+
+function createGoToTabButton(tabId, { title = "Go to tab", compact = false } = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = compact ? "go-to-tab-btn go-to-tab-btn-compact" : "go-to-tab-btn";
+  button.title = title;
+  button.setAttribute("aria-label", title);
+  button.innerHTML = GO_TO_TAB_ICON;
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    goToTab(tabId);
+  });
+  return button;
+}
+
+function updateManagedTabGoButton() {
+  const show = Boolean(isConnected && managedTabId);
+  goToManagedTabBtn.classList.toggle("hidden", !show);
+}
+
+function setLlmLauncherVisible(visible) {
+  llmLauncher.classList.toggle("hidden", !visible);
+}
+
+function getLlmFaviconUrl(host) {
+  return `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
+}
+
+function createLlmLauncherIcon(llm) {
+  const img = document.createElement("img");
+  img.className = "llm-launcher-icon";
+  img.alt = `${llm.name} logo`;
+  img.width = 32;
+  img.height = 32;
+  img.src = getLlmFaviconUrl(llm.host);
+  img.addEventListener("error", () => {
+    const fallback = document.createElement("span");
+    fallback.className = "llm-launcher-fallback";
+    fallback.style.setProperty("--llm-accent", llm.accent);
+    fallback.innerText = llm.name.charAt(0);
+    img.replaceWith(fallback);
+  });
+  return img;
+}
+
+function renderLlmLauncher() {
+  llmLauncherGrid.innerHTML = "";
+
+  SUPPORTED_LLMS.forEach((llm) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "llm-launcher-btn";
+    button.dataset.llmId = llm.id;
+    button.title = `Open ${llm.name}`;
+    button.setAttribute("aria-label", `Open ${llm.name}`);
+    button.style.setProperty("--llm-accent", llm.accent);
+
+    button.appendChild(createLlmLauncherIcon(llm));
+
+    const name = document.createElement("span");
+    name.className = "llm-launcher-name";
+    name.innerText = llm.name;
+    button.appendChild(name);
+
+    button.addEventListener("click", () => openLlmChat(llm));
+    llmLauncherGrid.appendChild(button);
+  });
+}
+
+function setLlmLauncherBusy(llmId) {
+  openingLlmId = llmId;
+  llmLauncherGrid.querySelectorAll(".llm-launcher-btn").forEach((button) => {
+    button.disabled = Boolean(llmId);
+  });
+}
+
+async function openLlmChat(llm) {
+  if (openingLlmId) return;
+
+  setLlmLauncherBusy(llm.id);
+  setLlmLauncherVisible(false);
+  connectionDot.classList.remove("connected", "disconnected");
+  connectionDot.classList.add("checking");
+  connectionText.innerText = `Opening ${llm.name}...`;
+
+  try {
+    const tab = await chrome.tabs.create({ url: llm.url, active: true });
+    if (tab?.id) {
+      managedTabId = tab.id;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await refreshLinkedTabs({ showChecking: true });
+  } catch (_error) {
+    setConnectionStatus("disconnected");
+    connectionText.innerText = `Could not open ${llm.name}.`;
+    setLlmLauncherVisible(true);
+  } finally {
+    setLlmLauncherBusy(null);
+  }
+}
+
+async function findTabForHistoryEntry(entry) {
+  if (entry.tabId) {
+    try {
+      await chrome.tabs.get(entry.tabId);
+      return entry.tabId;
+    } catch (_error) {
+      // Tab closed; fall through to URL matching.
+    }
+  }
+
+  if (!entry.chatId) return null;
+
+  const tabs = await chrome.tabs.query({});
+  const match = tabs.find((tab) => {
+    if (!tab.id || !isSupportedChatUrl(tab.url)) return false;
+    if (entry.site && getSiteFromUrl(tab.url) !== entry.site) return false;
+    return getChatIdFromUrl(tab.url) === entry.chatId;
+  });
+
+  return match?.id || null;
+}
+
+function setStatus(message, tone = "", { tabId = null } = {}) {
+  statusDiv.innerHTML = "";
+  statusDiv.classList.remove("success", "error", "has-go-to-tab");
+
+  if (!message) return;
+
+  const text = document.createElement("span");
+  text.innerText = message;
+  statusDiv.appendChild(text);
+
+  if (tabId) {
+    statusDiv.classList.add("has-go-to-tab");
+    statusDiv.appendChild(
+      createGoToTabButton(tabId, { title: "Go to chat tab", compact: true })
+    );
+  }
+
   if (tone === "green" || tone === "success") {
     statusDiv.classList.add("success");
   } else if (tone === "red" || tone === "error") {
     statusDiv.classList.add("error");
+  }
+}
+
+function setQueueStatusBanner(className, text, { extraButtons = [] } = {}) {
+  queueStatus.classList.remove("hidden");
+  queueStatus.className = `queue-status ${className}`.trim();
+  queueStatus.innerHTML = "";
+
+  const message = document.createElement("span");
+  message.className = "queue-status-text";
+  message.innerText = text;
+  queueStatus.appendChild(message);
+
+  const actions = document.createElement("div");
+  actions.className = "queue-status-actions";
+
+  if (managedTabId) {
+    actions.appendChild(
+      createGoToTabButton(managedTabId, { title: "Go to chat tab", compact: true })
+    );
+  }
+
+  extraButtons.forEach((button) => actions.appendChild(button));
+
+  if (actions.childNodes.length) {
+    queueStatus.appendChild(actions);
   }
 }
 
@@ -299,6 +529,12 @@ async function loadBroadcastTabs() {
     label.appendChild(checkbox);
     label.appendChild(textWrap);
     li.appendChild(label);
+    li.appendChild(
+      createGoToTabButton(tab.id, {
+        compact: true,
+        title: `Go to ${truncate(tab.title || "tab", 40)}`
+      })
+    );
     broadcastTabList.appendChild(li);
   });
 }
@@ -537,6 +773,12 @@ function renderConnectionBar(linked, ignoredEntries = ignoredTabsCache) {
       restoreBtn.addEventListener("click", () => restoreTab(entry.tabId));
 
       row.appendChild(label);
+      row.appendChild(
+        createGoToTabButton(entry.tabId, {
+          compact: true,
+          title: `Go to ${truncate(entry.title || "tab", 40)}`
+        })
+      );
       row.appendChild(restoreBtn);
       linkedTabsPanel.appendChild(row);
     });
@@ -571,6 +813,12 @@ function createLinkedTabRow(entry, { selected, onSelect, onIgnore }) {
   });
 
   row.appendChild(selectBtn);
+  row.appendChild(
+    createGoToTabButton(entry.tabId, {
+      compact: true,
+      title: `Go to ${truncate(entry.title || "tab", 40)}`
+    })
+  );
   row.appendChild(ignoreBtn);
   return row;
 }
@@ -584,6 +832,7 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
   if (showChecking) {
     setConnectionStatus("checking");
     reconnectBtn.classList.add("hidden");
+    setLlmLauncherVisible(false);
   }
 
   const ignored = await getIgnoredTabIds();
@@ -647,6 +896,7 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
     if (allSupportedCount > 0 && ignored.size >= allSupportedCount) {
       connectionText.innerHTML =
         'All tabs ignored. <button type="button" class="link-btn" id="resetIgnoredBtn">Reset all</button>';
+      setLlmLauncherVisible(false);
       document.getElementById("resetIgnoredBtn")?.addEventListener("click", async () => {
         await chrome.storage.local.remove(IGNORED_TABS_KEY);
         lastLinkedTabsSignature = "";
@@ -655,8 +905,10 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
     } else if (allSupportedCount > 0) {
       connectionText.innerText = "Can't reach chat tab.";
       reconnectBtn.classList.remove("hidden");
+      setLlmLauncherVisible(false);
     } else {
-      connectionText.innerText = "Open a supported chat tab.";
+      connectionText.innerText = "No chat tabs open — pick one below";
+      setLlmLauncherVisible(true);
     }
 
     latestState = null;
@@ -708,6 +960,7 @@ function setConnectionStatus(status, { site = "", chatId = null } = {}) {
     connectionText.innerText = formatConnectionLabel(site, chatId);
     connectionText.title = chatId || "";
     isConnected = true;
+    setLlmLauncherVisible(false);
   } else if (status === "disconnected") {
     connectionDot.classList.add("disconnected");
     connectionText.innerText = "Not connected to chat";
@@ -724,6 +977,7 @@ function setConnectionStatus(status, { site = "", chatId = null } = {}) {
     isConnected = false;
   }
 
+  updateManagedTabGoButton();
   updateControls();
 }
 
@@ -734,27 +988,19 @@ function renderQueueStatus(state) {
   if (!state || !state.connected) return;
 
   if (state.lastError) {
-    queueStatus.classList.remove("hidden");
-    queueStatus.className = "queue-status error";
-    queueStatus.innerText = state.lastError;
+    setQueueStatusBanner("error", state.lastError);
     return;
   }
 
   if (isStaleContentScript(state)) {
-    queueStatus.classList.remove("hidden");
-    queueStatus.className = "queue-status paused";
-    queueStatus.innerText =
-      "Refresh the managed chat tab once to enable controls (F5).";
+    setQueueStatusBanner(
+      "paused",
+      "Refresh the managed chat tab once to enable controls (F5)."
+    );
     return;
   }
 
   if (state.pauseReason === "checkpoint" && state.queueLength > 0) {
-    queueStatus.classList.remove("hidden");
-    queueStatus.className = "queue-status checkpoint";
-
-    const text = document.createElement("span");
-    text.innerText = "Checkpoint reached. Review the response, then resume.";
-
     const resumeBtn = document.createElement("button");
     resumeBtn.type = "button";
     resumeBtn.className = "checkpoint-resume-btn";
@@ -762,29 +1008,27 @@ function renderQueueStatus(state) {
     resumeBtn.disabled = !canUseQueueControls(state);
     resumeBtn.addEventListener("click", () => sendQueueAction("resume_queue"));
 
-    queueStatus.appendChild(text);
-    queueStatus.appendChild(resumeBtn);
+    setQueueStatusBanner("checkpoint", "Checkpoint reached. Review the response, then resume.", {
+      extraButtons: [resumeBtn]
+    });
     return;
   }
 
   if (state.isPaused && state.queueLength > 0) {
-    queueStatus.classList.remove("hidden");
-    queueStatus.className = "queue-status paused";
-    queueStatus.innerText = "Queue is paused. Resume to continue sending.";
+    setQueueStatusBanner("paused", "Queue is paused. Resume to continue sending.");
     return;
   }
 
   if (state.isProcessing) {
-    queueStatus.classList.remove("hidden");
-    queueStatus.className = "queue-status";
-    queueStatus.innerText = "Sending the first prompt in the queue...";
+    setQueueStatusBanner("", "Sending the first prompt in the queue...");
     return;
   }
 
   if (state.queueLength > 0) {
-    queueStatus.classList.remove("hidden");
-    queueStatus.className = "queue-status";
-    queueStatus.innerText = `${state.queueLength} prompt${state.queueLength === 1 ? "" : "s"} waiting.`;
+    setQueueStatusBanner(
+      "",
+      `${state.queueLength} prompt${state.queueLength === 1 ? "" : "s"} waiting.`
+    );
   }
 }
 
@@ -980,6 +1224,15 @@ function renderQueue(state) {
 
     header.appendChild(badge);
     header.appendChild(preview);
+
+    if ((isSending || isNextAtCheckpoint) && managedTabId) {
+      header.appendChild(
+        createGoToTabButton(managedTabId, {
+          compact: true,
+          title: "Go to chat tab"
+        })
+      );
+    }
 
     const meta = document.createElement("div");
     meta.className = "queue-meta";
@@ -1275,7 +1528,7 @@ async function loadHistoryView() {
   renderHistory(response.history || []);
 }
 
-function renderHistory(history) {
+async function renderHistory(history) {
   historyList.innerHTML = "";
 
   if (!history.length) {
@@ -1286,7 +1539,11 @@ function renderHistory(history) {
     return;
   }
 
-  history.slice(0, 50).forEach((entry) => {
+  const tabIds = await Promise.all(
+    history.slice(0, 50).map((entry) => findTabForHistoryEntry(entry))
+  );
+
+  history.slice(0, 50).forEach((entry, index) => {
     const li = document.createElement("li");
     li.className = "history-item";
 
@@ -1304,6 +1561,16 @@ function renderHistory(history) {
 
     header.appendChild(meta);
     header.appendChild(preview);
+
+    const tabId = tabIds[index];
+    if (tabId) {
+      header.appendChild(
+        createGoToTabButton(tabId, {
+          compact: true,
+          title: `Go to ${entry.site} chat`
+        })
+      );
+    }
 
     const time = document.createElement("div");
     time.className = "queue-meta";
@@ -1391,11 +1658,14 @@ queueBtn.addEventListener("click", async () => {
 
   promptText.value = "";
   pauseHereAdd.checked = false;
-  setStatus(`Added! Queue size: ${response.queueLength}`, "green");
+  setStatus(`Added! Queue size: ${response.queueLength}`, "success", {
+    tabId: managedTabId
+  });
 
   setTimeout(() => {
-    if (statusDiv.innerText.startsWith("Added!")) setStatus("", "");
-  }, 2000);
+    const statusText = statusDiv.querySelector("span");
+    if (statusText?.innerText.startsWith("Added!")) setStatus("", "");
+  }, 4000);
 });
 
 pauseBtn.addEventListener("click", async () => {
@@ -1439,6 +1709,10 @@ reconnectBtn.addEventListener("click", async () => {
   await refreshLinkedTabs({ showChecking: true });
 });
 
+goToManagedTabBtn.addEventListener("click", () => {
+  goToTab(managedTabId);
+});
+
 broadcastSelectAll.addEventListener("click", () => setBroadcastTabSelection(true));
 broadcastSelectNone.addEventListener("click", () => setBroadcastTabSelection(false));
 
@@ -1448,6 +1722,7 @@ managePersonaBtn.addEventListener("click", () => {
 
 addPersonaBtn.addEventListener("click", () => addPersona());
 
+renderLlmLauncher();
 loadPersonas();
 refreshLinkedTabs({ showChecking: true });
 pollTimer = setInterval(() => refreshLinkedTabs({ showChecking: false }), 3000);
