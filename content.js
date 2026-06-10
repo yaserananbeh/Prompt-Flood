@@ -1,5 +1,5 @@
 (() => {
-  const CONTENT_VERSION = 7;
+  const CONTENT_VERSION = 9;
 
   if (!globalThis.LLM_PLATFORMS) {
     console.error("Prompt Orchestrator: platforms.js must load before content.js.");

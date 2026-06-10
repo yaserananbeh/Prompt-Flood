@@ -22,7 +22,11 @@ const SUPPORTED_HOSTS = [
   "chatgpt.com",
   "chat.openai.com",
   "gemini.google.com",
-  "claude.ai"
+  "claude.ai",
+  "kimi.com",
+  "chat.deepseek.com",
+  "doubao.com",
+  "perplexity.ai"
 ];
 
 function isSupportedUrl(url) {

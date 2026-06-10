@@ -1,12 +1,12 @@
 # Prompt Orchestrator
 
-**Queue, pause, and broadcast prompts across ChatGPT, Gemini, and Claude.**
+**Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, DeepSeek, Doubao, and Perplexity.**
 
 A Chrome extension built for multi-step AI workflows: chain prompts, pause for review, reuse personas, broadcast to multiple chats, and pick up exactly where you left off after a refresh.
 
 ![Chrome MV3](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.3.2-blue)
-![Platforms](https://img.shields.io/badge/platforms-ChatGPT%20%7C%20Gemini%20%7C%20Claude-7C3AED)
+![Version](https://img.shields.io/badge/version-2.5.0-blue)
+![Platforms](https://img.shields.io/badge/platforms-ChatGPT%20%7C%20Gemini%20%7C%20Claude%20%7C%20Kimi%20%7C%20DeepSeek%20%7C%20Doubao%20%7C%20Perplexity-7C3AED)
 
 ---
 
@@ -30,6 +30,10 @@ Most LLM chat UIs are built for one prompt at a time. When you are running a res
 | **ChatGPT** | `chatgpt.com`, `chat.openai.com` |
 | **Gemini** | `gemini.google.com` |
 | **Claude** | `claude.ai` |
+| **Kimi** | `kimi.com` |
+| **DeepSeek** | `chat.deepseek.com` |
+| **Doubao** | `doubao.com` |
+| **Perplexity** | `perplexity.ai` |
 
 Each platform has a dedicated adapter in `platforms.js` that handles editor detection, send actions, and ready-state checks — so the queue only fires when the model is actually ready for the next prompt.
 
@@ -87,7 +91,7 @@ Personas are applied at send time, so your queue stores clean prompt text while 
 Send the same prompt to multiple chat tabs at once.
 
 1. Enable **Broadcast**
-2. Pick which open ChatGPT / Gemini / Claude tabs should receive it
+2. Pick which open supported chat tabs should receive it
 3. Use **All** / **None** for quick selection
 4. Click **Broadcast to selected**
 
@@ -140,7 +144,7 @@ Every successfully sent prompt is logged in the **History** tab.
 
 ### After installing or updating
 
-Refresh any open ChatGPT, Gemini, or Claude tabs once so the latest content script is active.
+Refresh any open supported chat tabs once so the latest content script is active.
 
 ---
 
@@ -186,7 +190,7 @@ With **Pause here** on Prompt 1, the queue stops after the summary so you can re
 LLM queue/
 ├── manifest.json      # Extension manifest (MV3)
 ├── background.js      # History, personas, broadcast relay, tab messaging
-├── platforms.js       # ChatGPT / Gemini / Claude adapters
+├── platforms.js       # Platform adapters (ChatGPT, Gemini, Claude, Kimi, DeepSeek, Doubao, Perplexity)
 ├── content.js         # Per-tab queue engine, checkpoints, persistence
 ├── popup.html         # Popup UI
 └── popup.js           # Popup logic and tab manager
@@ -217,7 +221,7 @@ LLM queue/
 | `scripting` | Inject content scripts when needed |
 | `tabs` | Multi-tab broadcast and tab manager |
 | `storage` | Persist queues, history, personas, and ignored tabs |
-| Host permissions | Run only on ChatGPT, Gemini, and Claude domains |
+| Host permissions | Run only on supported chat domains |
 
 No data is sent to external servers. Everything stays in your browser via `chrome.storage.local`.
 
@@ -240,6 +244,8 @@ No data is sent to external servers. Everything stays in your browser via `chrom
 
 | Version | Highlights |
 |---------|------------|
+| **2.5.0** | Perplexity support |
+| **2.4.0** | Kimi, DeepSeek, and Doubao support |
 | **2.3.x** | Connection reliability, tab restore, persona edit/delete, UI polish |
 | **2.2.x** | Broadcast tab picker, compact multi-tab UI, checkpoint resume fixes |
 | **2.0** | Claude support, personas, history, checkpoints, broadcast |
@@ -257,4 +263,4 @@ Issues and pull requests are welcome. When adding a new platform, extend `platfo
 
 Built for power users who treat LLM chats like a pipeline — not a single message at a time.
 
-**Prompt Orchestrator** — queue, pause, and broadcast across ChatGPT, Gemini, and Claude.
+**Prompt Orchestrator** — queue, pause, and broadcast across ChatGPT, Gemini, Claude, Kimi, DeepSeek, Doubao, and Perplexity.

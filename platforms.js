@@ -71,6 +71,114 @@ globalThis.LLM_PLATFORMS = (() => {
         const match = pathname.match(/\/chat\/([a-f0-9-]+)/i);
         return match ? match[1] : null;
       }
+    },
+    kimi: {
+      id: "kimi",
+      name: "Kimi",
+      host: "kimi.com",
+      editor: [
+        '.chat-input-editor[data-lexical-editor="true"]',
+        '.chat-input-editor[contenteditable="true"]',
+        '[role="textbox"].chat-input-editor',
+        'div.chat-input-editor[contenteditable="true"]'
+      ],
+      stopButton: [
+        ".send-button-container.stop",
+        '.send-button-container:has(svg[name="stop"])'
+      ],
+      sendButton: ".send-button-container:not(.disabled):not(.stop)",
+      visibleEditor: true,
+      inputType: "lexical",
+      getChatId(pathname) {
+        const match = pathname.match(/\/chat\/([a-z0-9-]+)/i);
+        return match ? match[1] : null;
+      }
+    },
+    deepseek: {
+      id: "deepseek",
+      name: "DeepSeek",
+      host: "chat.deepseek.com",
+      editor: [
+        "#chat-input",
+        'textarea[placeholder*="DeepSeek" i]',
+        "textarea.ds-scroll-area",
+        "form textarea",
+        "textarea"
+      ],
+      stopButton: [
+        'button[aria-label*="Stop" i]',
+        'button[aria-label*="Cancel" i]',
+        'div[role="button"].ds-icon-button:has(svg path[d^="M2 4.88"])'
+      ],
+      sendButton: [
+        'button[aria-label="Send message"]',
+        'button[aria-label*="Send" i]',
+        '[data-testid="send-button"]',
+        'button[type="submit"]',
+        'div[role="button"].ds-icon-button'
+      ],
+      visibleEditor: true,
+      inputType: "textarea",
+      getChatId(pathname) {
+        const match = pathname.match(/\/a\/chat\/s\/([a-z0-9-]+)/i);
+        return match ? match[1] : null;
+      }
+    },
+    doubao: {
+      id: "doubao",
+      name: "Doubao",
+      host: "doubao.com",
+      editor: [
+        'textarea[data-testid="chat_input_input"]',
+        "textarea.semi-input-textarea",
+        '[data-slate-editor="true"]',
+        'div[contenteditable="true"][role="textbox"]'
+      ],
+      stopButton: '[data-testid="chat_input_local_break_button"]',
+      sendButton: [
+        '[data-testid="chat_input_send_button"]',
+        "#flow-end-msg-send",
+        ".send-btn-wrapper button"
+      ],
+      visibleEditor: true,
+      getChatId(pathname) {
+        const match = pathname.match(/(?:\/code)?\/chat\/([^/?#]+)/i);
+        return match ? match[1] : null;
+      }
+    },
+    perplexity: {
+      id: "perplexity",
+      name: "Perplexity",
+      host: "perplexity.ai",
+      editor: [
+        'div[contenteditable="true"][role="textbox"]',
+        'textarea[placeholder*="Ask" i]',
+        'textarea[placeholder*="Search" i]',
+        'textarea[placeholder*="Message" i]',
+        "textarea"
+      ],
+      stopButton: [
+        'button[aria-label*="Stop" i]',
+        'button[aria-label*="Cancel" i]',
+        'button[aria-label*="Pause" i]'
+      ],
+      sendButton: [
+        'button[aria-label="Submit"]',
+        'button[aria-label*="Submit" i]',
+        'button[aria-label*="Send" i]',
+        'button[aria-label*="Search" i]',
+        'button[type="submit"]'
+      ],
+      visibleEditor: true,
+      inputType: "lexical",
+      enterOnSend: true,
+      getChatId(pathname) {
+        const searchMatch = pathname.match(/\/search\/([^/?#]+)/i);
+        if (searchMatch) return searchMatch[1];
+
+        const pageMatch = pathname.match(/\/p\/([^/?#]+)/i);
+        return pageMatch ? pageMatch[1] : null;
+      }
     }
   };
 
@@ -119,7 +227,15 @@ globalThis.LLM_PLATFORMS = (() => {
       : queryFirst(platform.stopButton);
   }
 
+  function isTextareaEditor(editor) {
+    return editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement;
+  }
+
   function getEditorText(editor) {
+    if (isTextareaEditor(editor)) {
+      return (editor.value || "").trim();
+    }
+
     return (editor.innerText || editor.textContent || "").trim();
   }
 
@@ -154,6 +270,48 @@ globalThis.LLM_PLATFORMS = (() => {
     const editor = getEditor(platform);
     const stopBtn = getStopButton(platform);
     return Boolean(editor && !stopBtn);
+  }
+
+  async function injectLexicalText(editor, text) {
+    editor.focus();
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    let inserted = false;
+
+    try {
+      inserted = document.execCommand("insertText", false, text);
+    } catch (_error) {
+      inserted = false;
+    }
+
+    if (!inserted) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData("text/plain", text);
+      editor.dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData: dataTransfer,
+          bubbles: true,
+          cancelable: true
+        })
+      );
+      editor.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          inputType: "insertText",
+          data: text
+        })
+      );
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, SEND_SETTLE_MS));
+    editor.focus();
   }
 
   async function injectProseMirrorText(editor, text) {
@@ -207,6 +365,34 @@ globalThis.LLM_PLATFORMS = (() => {
       })
     );
     editor.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await new Promise((resolve) => setTimeout(resolve, SEND_SETTLE_MS));
+    editor.focus();
+  }
+
+  async function injectTextareaText(editor, text) {
+    editor.focus();
+
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value"
+    )?.set;
+
+    if (nativeSetter) {
+      nativeSetter.call(editor, text);
+    } else {
+      editor.value = text;
+    }
+
+    editor.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: text
+      })
+    );
+    editor.dispatchEvent(new Event("change", { bubbles: true }));
+    editor.setSelectionRange(text.length, text.length);
 
     await new Promise((resolve) => setTimeout(resolve, SEND_SETTLE_MS));
     editor.focus();
@@ -292,6 +478,15 @@ globalThis.LLM_PLATFORMS = (() => {
 
     if (platform.id === "chatgpt") {
       await injectChatGPTText(editor, text);
+    } else if (isTextareaEditor(editor)) {
+      await injectTextareaText(editor, text);
+
+      if (!editorContainsText(editor, text)) {
+        console.error(`${platform.name} text injection failed.`);
+        return false;
+      }
+    } else if (platform.inputType === "lexical") {
+      await injectLexicalText(editor, text);
     } else {
       await injectProseMirrorText(editor, text);
 
@@ -303,7 +498,11 @@ globalThis.LLM_PLATFORMS = (() => {
 
     const sendBtn = await waitForEnabledSendButton(platform);
     if (!sendBtn) {
-      if (platform.id === "chatgpt") {
+      if (
+        platform.id === "chatgpt" ||
+        isTextareaEditor(editor) ||
+        platform.enterOnSend
+      ) {
         editor.dispatchEvent(
           new KeyboardEvent("keydown", {
             bubbles: true,

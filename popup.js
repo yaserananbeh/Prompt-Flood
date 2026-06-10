@@ -1,9 +1,13 @@
-const CONTENT_VERSION = 7;
+const CONTENT_VERSION = 9;
 const SUPPORTED_HOSTS = [
   "chatgpt.com",
   "chat.openai.com",
   "gemini.google.com",
-  "claude.ai"
+  "claude.ai",
+  "kimi.com",
+  "chat.deepseek.com",
+  "doubao.com",
+  "perplexity.ai"
 ];
 const IGNORED_TABS_KEY = "ignoredTabIds";
 
@@ -57,6 +61,10 @@ function getSiteFromUrl(url) {
   if (url.includes("chatgpt.com") || url.includes("chat.openai.com")) return "ChatGPT";
   if (url.includes("gemini.google.com")) return "Gemini";
   if (url.includes("claude.ai")) return "Claude";
+  if (url.includes("kimi.com")) return "Kimi";
+  if (url.includes("chat.deepseek.com")) return "DeepSeek";
+  if (url.includes("doubao.com")) return "Doubao";
+  if (url.includes("perplexity.ai")) return "Perplexity";
   return "Unknown";
 }
 
@@ -77,6 +85,29 @@ function getChatIdFromUrl(url) {
     if (url.includes("claude.ai")) {
       const match = pathname.match(/\/chat\/([a-f0-9-]+)/i);
       return match ? match[1] : null;
+    }
+
+    if (url.includes("kimi.com")) {
+      const match = pathname.match(/\/chat\/([a-z0-9-]+)/i);
+      return match ? match[1] : null;
+    }
+
+    if (url.includes("chat.deepseek.com")) {
+      const match = pathname.match(/\/a\/chat\/s\/([a-z0-9-]+)/i);
+      return match ? match[1] : null;
+    }
+
+    if (url.includes("doubao.com")) {
+      const match = pathname.match(/(?:\/code)?\/chat\/([^/?#]+)/i);
+      return match ? match[1] : null;
+    }
+
+    if (url.includes("perplexity.ai")) {
+      const searchMatch = pathname.match(/\/search\/([^/?#]+)/i);
+      if (searchMatch) return searchMatch[1];
+
+      const pageMatch = pathname.match(/\/p\/([^/?#]+)/i);
+      return pageMatch ? pageMatch[1] : null;
     }
   } catch (_error) {
     return null;
@@ -505,7 +536,7 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
       connectionText.innerText = "Can't reach chat tab.";
       reconnectBtn.classList.remove("hidden");
     } else {
-      connectionText.innerText = "Open ChatGPT, Gemini, or Claude.";
+      connectionText.innerText = "Open a supported chat tab.";
     }
 
     latestState = null;
@@ -1060,7 +1091,7 @@ async function sendQueueAction(action, payload = {}) {
 
   if (!tab?.id || !tab.url || !isSupportedChatUrl(tab.url)) {
     setConnectionStatus("disconnected");
-    setStatus("Open ChatGPT, Gemini, or Claude first!", "red");
+    setStatus("Open a supported chat tab first!", "red");
     return { ok: false, error: "Not connected." };
   }
 
