@@ -101,10 +101,15 @@ const editPromptInput = document.getElementById("editPromptInput");
 const editPromptCancel = document.getElementById("editPromptCancel");
 const editPromptSave = document.getElementById("editPromptSave");
 const llmLauncher = document.getElementById("llmLauncher");
+const llmLauncherToggle = document.getElementById("llmLauncherToggle");
+const llmLauncherLabel = document.getElementById("llmLauncherLabel");
+const llmLauncherChevron = document.getElementById("llmLauncherChevron");
 const llmLauncherGrid = document.getElementById("llmLauncherGrid");
 
 let activeTabId = null;
 let openingLlmId = null;
+let llmLauncherUserExpanded = null;
+let lastSupportedTabCount = 0;
 let managedTabId = null;
 let isConnected = false;
 let latestState = null;
@@ -154,8 +159,25 @@ function updateManagedTabGoButton() {
   goToManagedTabBtn.classList.toggle("hidden", !show);
 }
 
-function setLlmLauncherVisible(visible) {
-  llmLauncher.classList.toggle("hidden", !visible);
+function updateLlmLauncher(supportedTabCount = lastSupportedTabCount) {
+  lastSupportedTabCount = supportedTabCount;
+  const hasTabs = supportedTabCount > 0;
+
+  llmLauncherLabel.innerText = hasTabs ? "Open another chat" : "Start a chat";
+  llmLauncherToggle.title = hasTabs
+    ? "Open more AI chat tabs in the background"
+    : "Pick an AI chat to connect";
+
+  const expanded = llmLauncherUserExpanded ?? !hasTabs;
+  llmLauncher.classList.toggle("llm-launcher-collapsed", !expanded);
+  llmLauncherChevron.innerText = expanded ? "▴" : "▾";
+  llmLauncherToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+}
+
+function toggleLlmLauncher() {
+  const isCollapsed = llmLauncher.classList.contains("llm-launcher-collapsed");
+  llmLauncherUserExpanded = isCollapsed;
+  updateLlmLauncher();
 }
 
 function getLlmFaviconUrl(host) {
@@ -187,8 +209,8 @@ function renderLlmLauncher() {
     button.type = "button";
     button.className = "llm-launcher-btn";
     button.dataset.llmId = llm.id;
-    button.title = `Open ${llm.name}`;
-    button.setAttribute("aria-label", `Open ${llm.name}`);
+    button.title = `Open ${llm.name} in the background`;
+    button.setAttribute("aria-label", `Open ${llm.name} in the background`);
     button.style.setProperty("--llm-accent", llm.accent);
 
     button.appendChild(createLlmLauncherIcon(llm));
@@ -213,24 +235,29 @@ function setLlmLauncherBusy(llmId) {
 async function openLlmChat(llm) {
   if (openingLlmId) return;
 
+  llmLauncherUserExpanded = true;
+  updateLlmLauncher();
   setLlmLauncherBusy(llm.id);
-  setLlmLauncherVisible(false);
-  connectionDot.classList.remove("connected", "disconnected");
-  connectionDot.classList.add("checking");
-  connectionText.innerText = `Opening ${llm.name}...`;
+  setStatus(`Opening ${llm.name} in the background...`, "");
 
   try {
-    const tab = await chrome.tabs.create({ url: llm.url, active: true });
-    if (tab?.id) {
+    const tab = await chrome.tabs.create({ url: llm.url, active: false });
+    if (tab?.id && !managedTabId) {
       managedTabId = tab.id;
     }
 
+    setStatus(`${llm.name} opened in a new tab.`, "success");
     await new Promise((resolve) => setTimeout(resolve, 1200));
-    await refreshLinkedTabs({ showChecking: true });
+    await refreshLinkedTabs({ showChecking: false });
+
+    setTimeout(() => {
+      const statusText = statusDiv.querySelector("span");
+      if (statusText?.innerText.includes("opened in a new tab")) {
+        setStatus("", "");
+      }
+    }, 3000);
   } catch (_error) {
-    setConnectionStatus("disconnected");
-    connectionText.innerText = `Could not open ${llm.name}.`;
-    setLlmLauncherVisible(true);
+    setStatus(`Could not open ${llm.name}.`, "error");
   } finally {
     setLlmLauncherBusy(null);
   }
@@ -832,7 +859,6 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
   if (showChecking) {
     setConnectionStatus("checking");
     reconnectBtn.classList.add("hidden");
-    setLlmLauncherVisible(false);
   }
 
   const ignored = await getIgnoredTabIds();
@@ -896,7 +922,6 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
     if (allSupportedCount > 0 && ignored.size >= allSupportedCount) {
       connectionText.innerHTML =
         'All tabs ignored. <button type="button" class="link-btn" id="resetIgnoredBtn">Reset all</button>';
-      setLlmLauncherVisible(false);
       document.getElementById("resetIgnoredBtn")?.addEventListener("click", async () => {
         await chrome.storage.local.remove(IGNORED_TABS_KEY);
         lastLinkedTabsSignature = "";
@@ -905,12 +930,11 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
     } else if (allSupportedCount > 0) {
       connectionText.innerText = "Can't reach chat tab.";
       reconnectBtn.classList.remove("hidden");
-      setLlmLauncherVisible(false);
     } else {
       connectionText.innerText = "No chat tabs open — pick one below";
-      setLlmLauncherVisible(true);
     }
 
+    updateLlmLauncher(allSupportedCount);
     latestState = null;
     renderQueue(null);
     renderQueueStatus(null);
@@ -945,6 +969,11 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
     latestState = managed.state;
     updateControls();
   }
+
+  const supportedTabCount = tabs.filter(
+    (tab) => tab.id && isSupportedChatUrl(tab.url)
+  ).length;
+  updateLlmLauncher(supportedTabCount);
 }
 
 function getPersonaName(personaId) {
@@ -960,7 +989,6 @@ function setConnectionStatus(status, { site = "", chatId = null } = {}) {
     connectionText.innerText = formatConnectionLabel(site, chatId);
     connectionText.title = chatId || "";
     isConnected = true;
-    setLlmLauncherVisible(false);
   } else if (status === "disconnected") {
     connectionDot.classList.add("disconnected");
     connectionText.innerText = "Not connected to chat";
@@ -1723,6 +1751,8 @@ managePersonaBtn.addEventListener("click", () => {
 addPersonaBtn.addEventListener("click", () => addPersona());
 
 renderLlmLauncher();
+llmLauncherToggle.addEventListener("click", toggleLlmLauncher);
+updateLlmLauncher(0);
 loadPersonas();
 refreshLinkedTabs({ showChecking: true });
 pollTimer = setInterval(() => refreshLinkedTabs({ showChecking: false }), 3000);

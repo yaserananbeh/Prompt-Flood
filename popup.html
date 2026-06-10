@@ -1220,6 +1220,44 @@
       text-align: center;
       line-height: 1.2;
     }
+
+    .llm-launcher-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+    }
+
+    .llm-launcher-header .section-label {
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+
+    .llm-launcher-chevron {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .llm-launcher-body {
+      margin-top: 10px;
+    }
+
+    #llmLauncher.llm-launcher-collapsed .llm-launcher-body {
+      display: none;
+    }
+
+    #llmLauncher.llm-launcher-collapsed .llm-launcher-header {
+      margin-bottom: 0;
+    }
   </style>
 </head>
 
@@ -1258,10 +1296,15 @@
         </div>
       </div>
 
-      <div id="llmLauncher" class="card hidden">
+      <div id="llmLauncher" class="card llm-launcher-collapsed">
         <div class="card-section">
-          <span class="section-label">Start a chat</span>
-          <div id="llmLauncherGrid" class="llm-launcher-grid"></div>
+          <button type="button" id="llmLauncherToggle" class="llm-launcher-header" aria-expanded="false">
+            <span id="llmLauncherLabel" class="section-label">Open another chat</span>
+            <span id="llmLauncherChevron" class="llm-launcher-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="llmLauncherBody" class="llm-launcher-body">
+            <div id="llmLauncherGrid" class="llm-launcher-grid"></div>
+          </div>
         </div>
       </div>
 
