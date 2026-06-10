@@ -21,22 +21,33 @@ function setStatus(message, color = "") {
   statusDiv.style.color = color;
 }
 
-function setConnectionStatus(status, site = "") {
+function formatConnectionLabel(site, chatId) {
+  if (!chatId) {
+    return `Connected to ${site}`;
+  }
+
+  return `Connected to ${site} · ${chatId}`;
+}
+
+function setConnectionStatus(status, { site = "", chatId = null } = {}) {
   connectionDot.classList.remove("connected", "disconnected", "checking");
 
   if (status === "connected") {
     connectionDot.classList.add("connected");
-    connectionText.innerText = `Connected to ${site}`;
+    connectionText.innerText = formatConnectionLabel(site, chatId);
+    connectionText.title = chatId || "";
     isConnected = true;
   } else if (status === "disconnected") {
     connectionDot.classList.add("disconnected");
     connectionText.innerText = "Not connected to chat";
+    connectionText.title = "";
     isConnected = false;
     latestState = null;
     renderQueue(null);
   } else {
     connectionDot.classList.add("checking");
     connectionText.innerText = "Checking connection...";
+    connectionText.title = "";
     isConnected = false;
   }
 
@@ -72,7 +83,7 @@ function renderQueueStatus(state) {
     return;
   }
 
-  if (state.isPaused) {
+  if (state.isPaused && state.queueLength > 0) {
     queueStatus.hidden = false;
     queueStatus.className = "queue-status paused";
     queueStatus.innerText = "Queue is paused. Resume to continue sending.";
@@ -166,8 +177,10 @@ function renderQueue(state) {
       )
     );
     actions.appendChild(
-      createActionButton("Duplicate", null, () =>
-        sendQueueAction("duplicate_queue_item", { index })
+      createActionButton("Copy", null, () =>
+        sendQueueAction("duplicate_queue_item", { index }),
+        false,
+        "Duplicate"
       )
     );
     actions.appendChild(
@@ -204,10 +217,13 @@ function renderQueue(state) {
   });
 }
 
-function createActionButton(label, className, onClick, disabled = false) {
+function createActionButton(label, className, onClick, disabled = false, title = "") {
   const button = document.createElement("button");
   button.type = "button";
   button.innerText = label;
+  if (title) {
+    button.title = title;
+  }
   if (className) {
     button.classList.add(className);
   }
@@ -246,7 +262,10 @@ function applyState(state, siteName = "") {
   latestState = state;
 
   if (state?.connected) {
-    setConnectionStatus("connected", siteName || state.site);
+    setConnectionStatus("connected", {
+      site: siteName || state.site,
+      chatId: state.chatId ?? null
+    });
   }
 
   renderQueueStatus(state);

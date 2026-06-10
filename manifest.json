@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LLM Prompt Queue",
-  "version": "1.3",
+  "version": "1.4",
   "description": "Queues multiple prompts for ChatGPT and Google Gemini.",
   "permissions": ["activeTab", "scripting", "tabs", "storage"],
   "host_permissions": [

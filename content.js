@@ -114,6 +114,24 @@
     return "Unknown";
   }
 
+  function getChatId() {
+    const { pathname } = window.location;
+
+    if (isChatGPTSite()) {
+      const match = pathname.match(/\/c\/([a-f0-9-]+)/i);
+      return match ? match[1] : null;
+    }
+
+    if (isGeminiSite()) {
+      const match = pathname.match(/\/app\/([^/?#]+)/i);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+
+    return null;
+  }
+
   function getTabId() {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ action: "get_tab_id" }, (response) => {
@@ -157,6 +175,7 @@
     return {
       connected,
       site: getSiteName(),
+      chatId: getChatId(),
       queue: [...promptQueue],
       queueLength: promptQueue.length,
       isProcessing,
@@ -334,6 +353,7 @@
       case "clear_queue":
         promptQueue = [];
         isProcessing = false;
+        isPaused = false;
         lastError = null;
         await persistState();
         return successResponse();
