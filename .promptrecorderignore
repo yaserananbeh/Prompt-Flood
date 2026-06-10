@@ -1,0 +1,5 @@
+# PromptRecorder ignore patterns
+# Add one path prefix per line (relative to workspace root).
+# Example:
+# secrets/
+# tmp/generated.json

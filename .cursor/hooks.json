@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "node .cursor/hooks/promptrecorder-capture-lifecycle.mjs"
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "node .cursor/hooks/promptrecorder-capture-lifecycle.mjs"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/promptrecorder-capture-lifecycle.mjs"
+      }
+    ]
+  }
+}
