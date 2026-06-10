@@ -1,147 +1,106 @@
 (() => {
-  const CONTENT_VERSION = 3;
+  const CONTENT_VERSION = 7;
 
-  if (globalThis.__LLM_PROMPT_QUEUE__?.version >= CONTENT_VERSION) {
+  if (!globalThis.LLM_PLATFORMS) {
+    console.error("LLM Prompt Queue: platforms.js must load before content.js.");
     return;
   }
+
+  const { detectPlatform, isReady, sendPrompt } = globalThis.LLM_PLATFORMS;
 
   if (globalThis.__LLM_PROMPT_QUEUE__?.dispose) {
     globalThis.__LLM_PROMPT_QUEUE__.dispose();
   }
 
-  const SELECTORS = {
-    chatgpt: {
-      editor: "#prompt-textarea",
-      stopButton: 'button[data-testid="stop-button"]',
-      sendButton: 'button[data-testid="send-button"]'
-    },
-    gemini: {
-      editor: [
-        'rich-textarea div[contenteditable="true"]',
-        'div[contenteditable="true"][role="textbox"]',
-        'div[contenteditable="true"][aria-label*="prompt" i]',
-        'div[contenteditable="true"][aria-label*="message" i]',
-        ".ql-editor[contenteditable='true']"
-      ],
-      stopButton: [
-        'button[aria-label="Stop response"]',
-        'button[aria-label*="Stop"]',
-        'button[aria-label*="Cancel"]'
-      ],
-      sendButton: [
-        'button[aria-label="Send message"]',
-        'button[aria-label*="Send message"]',
-        "button.send-button",
-        'button[aria-label*="Send"]',
-        'button[mattooltip*="Send"]'
-      ]
-    }
-  };
-
   const READY_TIMEOUT_MS = 120000;
   const READY_POLL_MS = 1000;
-  const SEND_SETTLE_MS = 500;
 
   let tabId = null;
   let promptQueue = [];
   let isProcessing = false;
   let isPaused = false;
+  let pauseReason = null;
   let lastError = null;
 
-  function isVisible(element) {
-    if (!element) return false;
-
-    const rect = element.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return false;
-
-    const style = window.getComputedStyle(element);
-    return style.visibility !== "hidden" && style.display !== "none";
+  function createQueueItem(text, { pauseAfter = false, personaId = null } = {}) {
+    return {
+      id: crypto.randomUUID(),
+      text: text.trim(),
+      pauseAfter: Boolean(pauseAfter),
+      personaId: personaId || null
+    };
   }
 
-  function queryFirst(selectors) {
-    const list = Array.isArray(selectors) ? selectors : [selectors];
-
-    for (const selector of list) {
-      const node = document.querySelector(selector);
-      if (node) {
-        return node;
-      }
+  function normalizeQueueItem(item) {
+    if (typeof item === "string") {
+      return createQueueItem(item);
     }
 
-    return null;
-  }
-
-  function queryVisibleFirst(selectors) {
-    const list = Array.isArray(selectors) ? selectors : [selectors];
-
-    for (const selector of list) {
-      for (const node of document.querySelectorAll(selector)) {
-        if (isVisible(node)) {
-          return node;
-        }
-      }
+    if (!item || typeof item.text !== "string") {
+      return null;
     }
 
-    return null;
+    return {
+      id: item.id || crypto.randomUUID(),
+      text: item.text.trim(),
+      pauseAfter: Boolean(item.pauseAfter),
+      personaId: item.personaId || null
+    };
   }
 
-  function getEditorText(editor) {
-    return (editor.innerText || editor.textContent || "").trim();
-  }
-
-  function editorContainsText(editor, text) {
-    const current = getEditorText(editor);
-    const expected = text.trim();
-
-    if (!expected) return false;
-    if (current === expected) return true;
-
-    const sample = expected.slice(0, Math.min(30, expected.length));
-    return sample.length > 0 && current.includes(sample);
-  }
-
-  function isChatGPTSite() {
-    return window.location.hostname.includes("chatgpt.com");
-  }
-
-  function isGeminiSite() {
-    return window.location.hostname.includes("gemini.google.com");
-  }
-
-  function getSiteName() {
-    if (isChatGPTSite()) return "ChatGPT";
-    if (isGeminiSite()) return "Gemini";
-    return "Unknown";
-  }
-
-  function getChatId() {
-    const { pathname } = window.location;
-
-    if (isChatGPTSite()) {
-      const match = pathname.match(/\/c\/([a-f0-9-]+)/i);
-      return match ? match[1] : null;
-    }
-
-    if (isGeminiSite()) {
-      const match = pathname.match(/\/app\/([^/?#]+)/i);
-      if (match && match[1]) {
-        return match[1];
-      }
-    }
-
-    return null;
+  function getPlatform() {
+    return detectPlatform();
   }
 
   function getTabId() {
     return new Promise((resolve) => {
+      let settled = false;
+
+      const finish = (tabId) => {
+        if (!settled) {
+          settled = true;
+          resolve(tabId);
+        }
+      };
+
       chrome.runtime.sendMessage({ action: "get_tab_id" }, (response) => {
-        resolve(response?.tabId ?? null);
+        if (chrome.runtime.lastError) {
+          finish(null);
+          return;
+        }
+
+        finish(response?.tabId ?? null);
       });
+
+      setTimeout(() => finish(null), 1500);
     });
   }
 
   function storageKey() {
     return `queueState_${tabId}`;
+  }
+
+  async function loadPersonas() {
+    const data = await chrome.storage.local.get("personas");
+    return Array.isArray(data.personas) ? data.personas : [];
+  }
+
+  async function wrapWithPersona(text, personaId) {
+    if (!personaId) return text;
+
+    const personas = await loadPersonas();
+    const persona = personas.find((entry) => entry.id === personaId);
+    if (!persona) return text;
+
+    const prefix = (persona.prefix || "").trimEnd();
+    const suffix = (persona.suffix || "").trimStart();
+    const parts = [];
+
+    if (prefix) parts.push(prefix);
+    if (text) parts.push(text);
+    if (suffix) parts.push(suffix);
+
+    return parts.join("\n\n");
   }
 
   async function loadState() {
@@ -152,8 +111,11 @@
 
     if (!state) return;
 
-    promptQueue = Array.isArray(state.queue) ? state.queue : [];
+    promptQueue = Array.isArray(state.queue)
+      ? state.queue.map(normalizeQueueItem).filter(Boolean)
+      : [];
     isPaused = Boolean(state.paused);
+    pauseReason = state.pauseReason || null;
     lastError = state.lastError || null;
   }
 
@@ -164,22 +126,25 @@
       [storageKey()]: {
         queue: promptQueue,
         paused: isPaused,
+        pauseReason,
         lastError
       }
     });
   }
 
   function buildStateResponse() {
-    const connected = isChatGPTSite() || isGeminiSite();
+    const platform = getPlatform();
 
     return {
-      connected,
-      site: getSiteName(),
-      chatId: getChatId(),
-      queue: [...promptQueue],
+      connected: Boolean(platform),
+      site: platform?.name || "Unknown",
+      platformId: platform?.id || null,
+      chatId: platform ? platform.getChatId(window.location.pathname) : null,
+      queue: promptQueue.map((item) => ({ ...item })),
       queueLength: promptQueue.length,
       isProcessing,
       isPaused,
+      pauseReason,
       lastError,
       version: CONTENT_VERSION
     };
@@ -198,6 +163,42 @@
     return Number.isInteger(index) ? index : NaN;
   }
 
+  function playCheckpointChime() {
+    try {
+      const ctx = new AudioContext();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.08;
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.18);
+    } catch (_error) {
+      // Ignore if audio is blocked.
+    }
+  }
+
+  async function logSuccessfulSend(item) {
+    const platform = getPlatform();
+    if (!platform) return;
+
+    chrome.runtime.sendMessage({
+      action: "log_history",
+      entry: {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        site: platform.name,
+        platformId: platform.id,
+        chatId: platform.getChatId(window.location.pathname),
+        text: item.text,
+        personaId: item.personaId,
+        pauseAfter: item.pauseAfter
+      }
+    });
+  }
+
   async function init() {
     tabId = await getTabId();
     await loadState();
@@ -210,20 +211,35 @@
   const initPromise = init();
 
   async function handleMessage(request) {
+    if (request.action === "ping_connection") {
+      return successResponse();
+    }
+
     await initPromise;
 
     switch (request.action) {
-      case "ping_connection":
-        return successResponse();
-
       case "add_to_queue": {
         const prompt = request.prompt?.trim();
         if (!prompt) {
           return errorResponse("Prompt cannot be empty.");
         }
 
-        promptQueue.push(prompt);
+        const wasEmpty = promptQueue.length === 0;
+
+        promptQueue.push(
+          createQueueItem(prompt, {
+            pauseAfter: request.pauseAfter,
+            personaId: request.personaId
+          })
+        );
         await persistState();
+
+        if (request.pauseAfter && wasEmpty) {
+          isPaused = true;
+          pauseReason = "manual";
+          await persistState();
+          return successResponse();
+        }
 
         if (!isProcessing && !isPaused) {
           processQueue();
@@ -307,6 +323,7 @@
         const [item] = promptQueue.splice(index, 1);
         promptQueue.unshift(item);
         isPaused = false;
+        pauseReason = null;
         lastError = null;
         await persistState();
 
@@ -324,7 +341,8 @@
           return errorResponse("Invalid queue index.");
         }
 
-        promptQueue.splice(index + 1, 0, promptQueue[index]);
+        const copy = { ...promptQueue[index], id: crypto.randomUUID() };
+        promptQueue.splice(index + 1, 0, copy);
         await persistState();
         return successResponse();
       }
@@ -345,7 +363,23 @@
           return errorResponse("Cannot edit the prompt that is currently sending.");
         }
 
-        promptQueue[index] = prompt;
+        promptQueue[index] = { ...promptQueue[index], text: prompt };
+        await persistState();
+        return successResponse();
+      }
+
+      case "toggle_pause_after": {
+        const index = parseQueueIndex(request.index);
+
+        if (!Number.isInteger(index) || index < 0 || index >= promptQueue.length) {
+          return errorResponse("Invalid queue index.");
+        }
+
+        if (isProcessing && index === 0) {
+          return errorResponse("Cannot change checkpoint on the prompt that is sending.");
+        }
+
+        promptQueue[index].pauseAfter = !promptQueue[index].pauseAfter;
         await persistState();
         return successResponse();
       }
@@ -354,17 +388,20 @@
         promptQueue = [];
         isProcessing = false;
         isPaused = false;
+        pauseReason = null;
         lastError = null;
         await persistState();
         return successResponse();
 
       case "pause_queue":
         isPaused = true;
+        pauseReason = "manual";
         await persistState();
         return successResponse();
 
       case "resume_queue":
         isPaused = false;
+        pauseReason = null;
         lastError = null;
         await persistState();
 
@@ -412,67 +449,12 @@
     }
   };
 
-  async function processQueue() {
-    if (isPaused || promptQueue.length === 0) {
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    isProcessing = true;
-    lastError = null;
-    await persistState();
-
-    const isChatGPT = isChatGPTSite();
-
-    try {
-      await waitForReadyState(isChatGPT);
-    } catch (error) {
-      lastError = error.message;
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    if (isPaused || promptQueue.length === 0) {
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    const nextPrompt = promptQueue[0];
-    const success = isChatGPT
-      ? await handleChatGPT(nextPrompt)
-      : await handleGemini(nextPrompt);
-
-    if (success) {
-      promptQueue.shift();
-      lastError = null;
-      await persistState();
-      processQueue();
-      return;
-    }
-
-    lastError = "Failed to send prompt. Check the chat page or use Retry.";
-    isProcessing = false;
-    await persistState();
-  }
-
-  function waitForReadyState(isChatGPT) {
+  function waitForReadyState(platform) {
     return new Promise((resolve, reject) => {
       const startedAt = Date.now();
 
       const checkInterval = setInterval(() => {
-        const selectors = isChatGPT ? SELECTORS.chatgpt : SELECTORS.gemini;
-        const editor = isChatGPT
-          ? queryFirst(selectors.editor)
-          : queryVisibleFirst(selectors.editor);
-        const stopBtn = isChatGPT
-          ? queryFirst(selectors.stopButton)
-          : queryVisibleFirst(selectors.stopButton);
-        const isReady = Boolean(editor && !stopBtn);
-
-        if (isReady) {
+        if (isReady(platform)) {
           clearInterval(checkInterval);
           resolve();
           return;
@@ -490,197 +472,80 @@
     });
   }
 
-  async function injectGeminiText(editor, text) {
-    editor.focus();
+  async function processQueue() {
+    if (isPaused || promptQueue.length === 0) {
+      isProcessing = false;
+      await persistState();
+      return;
+    }
 
-    const selection = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    selection?.removeAllRanges();
-    selection?.addRange(range);
+    const platform = getPlatform();
+    if (!platform) {
+      lastError = "Unsupported chat page.";
+      isProcessing = false;
+      await persistState();
+      return;
+    }
 
-    let inserted = false;
+    isProcessing = true;
+    lastError = null;
+    await persistState();
 
     try {
-      inserted = document.execCommand("insertText", false, text);
-    } catch (_error) {
-      inserted = false;
+      await waitForReadyState(platform);
+    } catch (error) {
+      lastError = error.message;
+      isProcessing = false;
+      await persistState();
+      return;
     }
 
-    if (!inserted) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.setData("text/plain", text);
-      editor.dispatchEvent(
-        new ClipboardEvent("paste", {
-          clipboardData: dataTransfer,
-          bubbles: true,
-          cancelable: true
-        })
-      );
+    if (isPaused || promptQueue.length === 0) {
+      isProcessing = false;
+      await persistState();
+      return;
     }
 
-    if (!editorContainsText(editor, text)) {
-      const textNode = document.createTextNode(text);
+    const currentItem = promptQueue[0];
+    const wrappedText = await wrapWithPersona(currentItem.text, currentItem.personaId);
+    const success = await sendPrompt(platform, wrappedText);
 
-      if (selection && selection.rangeCount > 0) {
-        const insertRange = selection.getRangeAt(0);
-        insertRange.insertNode(textNode);
-        insertRange.setStartAfter(textNode);
-        insertRange.collapse(true);
-      } else {
-        editor.appendChild(textNode);
-      }
+    if (!success) {
+      lastError = "Failed to send prompt. Check the chat page or use Retry.";
+      isProcessing = false;
+      await persistState();
+      return;
     }
 
-    editor.dispatchEvent(
-      new InputEvent("input", {
-        bubbles: true,
-        inputType: "insertText",
-        data: text
-      })
-    );
-    editor.dispatchEvent(new Event("input", { bubbles: true }));
+    const sentItem = promptQueue.shift();
+    await logSuccessfulSend(sentItem);
+    lastError = null;
+    await persistState();
 
-    await new Promise((resolve) => setTimeout(resolve, SEND_SETTLE_MS));
-    editor.focus();
-  }
-
-  function findGeminiSendButton() {
-    for (const selector of SELECTORS.gemini.sendButton) {
-      for (const button of document.querySelectorAll(selector)) {
-        if (
-          isVisible(button) &&
-          !button.disabled &&
-          button.getAttribute("aria-disabled") !== "true"
-        ) {
-          return button;
-        }
-      }
+    if (promptQueue.length === 0) {
+      isProcessing = false;
+      await persistState();
+      return;
     }
 
-    return null;
-  }
-
-  async function waitForEnabledGeminiSendButton() {
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < 3000) {
-      const sendBtn = findGeminiSendButton();
-      if (sendBtn) {
-        return sendBtn;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    try {
+      await waitForReadyState(platform);
+    } catch (error) {
+      lastError = error.message;
+      isProcessing = false;
+      await persistState();
+      return;
     }
 
-    return null;
-  }
-
-  async function waitForGeminiSendConfirmation(editor) {
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < 5000) {
-      if (queryVisibleFirst(SELECTORS.gemini.stopButton)) {
-        return true;
-      }
-
-      if (getEditorText(editor).length === 0) {
-        return true;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    if (sentItem.pauseAfter) {
+      isPaused = true;
+      pauseReason = "checkpoint";
+      isProcessing = false;
+      playCheckpointChime();
+      await persistState();
+      return;
     }
 
-    return false;
-  }
-
-  async function injectText(editor, text) {
-    editor.focus();
-
-    const pNode = editor.querySelector("p");
-    if (pNode) {
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(pNode);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-
-    const dataTransfer = new DataTransfer();
-    dataTransfer.setData("text/plain", text);
-    const pasteEvent = new ClipboardEvent("paste", {
-      clipboardData: dataTransfer,
-      bubbles: true,
-      cancelable: true
-    });
-
-    editor.dispatchEvent(pasteEvent);
-    editor.dispatchEvent(new Event("input", { bubbles: true }));
-
-    await new Promise((resolve) => setTimeout(resolve, SEND_SETTLE_MS));
-  }
-
-  async function clickSend(editor, sendButtonSelector) {
-    const sendBtn = queryFirst(sendButtonSelector);
-
-    if (sendBtn && !sendBtn.disabled) {
-      sendBtn.click();
-      return true;
-    }
-
-    editor.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13
-      })
-    );
-
-    return true;
-  }
-
-  async function handleChatGPT(text) {
-    const editor = queryFirst(SELECTORS.chatgpt.editor);
-    if (!editor) {
-      console.error("ChatGPT editor not found.");
-      return false;
-    }
-
-    await injectText(editor, text);
-    return clickSend(editor, SELECTORS.chatgpt.sendButton);
-  }
-
-  async function handleGemini(text) {
-    const editor = queryVisibleFirst(SELECTORS.gemini.editor);
-    if (!editor) {
-      console.error("Gemini editor not found.");
-      return false;
-    }
-
-    await injectGeminiText(editor, text);
-
-    if (!editorContainsText(editor, text)) {
-      console.error("Gemini text injection failed.");
-      return false;
-    }
-
-    const sendBtn = await waitForEnabledGeminiSendButton();
-    if (!sendBtn) {
-      console.error("Gemini send button not found or still disabled.");
-      return false;
-    }
-
-    sendBtn.click();
-
-    const confirmed = await waitForGeminiSendConfirmation(editor);
-    if (!confirmed) {
-      console.error("Gemini did not confirm the send.");
-    }
-
-    return confirmed;
+    processQueue();
   }
 })();

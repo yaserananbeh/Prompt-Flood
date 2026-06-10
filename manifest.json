@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
   "name": "LLM Prompt Queue",
-  "version": "1.4",
-  "description": "Queues multiple prompts for ChatGPT and Google Gemini.",
+  "version": "2.3.2",
+  "description": "Queue prompts for ChatGPT, Gemini, and Claude with personas, checkpoints, history, and broadcast.",
   "permissions": ["activeTab", "scripting", "tabs", "storage"],
   "host_permissions": [
     "*://chatgpt.com/*",
-    "*://gemini.google.com/*"
+    "*://chat.openai.com/*",
+    "*://gemini.google.com/*",
+    "*://claude.ai/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -18,9 +20,11 @@
     {
       "matches": [
         "*://chatgpt.com/*",
-        "*://gemini.google.com/*"
+        "*://chat.openai.com/*",
+        "*://gemini.google.com/*",
+        "*://claude.ai/*"
       ],
-      "js": ["content.js"],
+      "js": ["platforms.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

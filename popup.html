@@ -2,23 +2,35 @@
 <html>
 
 <head>
+  <meta charset="UTF-8">
   <style>
     body {
-      width: 380px;
+      width: 400px;
       padding: 10px;
       font-family: sans-serif;
+      margin: 0;
     }
 
     h3 {
-      margin-top: 0;
+      margin: 0 0 10px 0;
+    }
+
+    textarea,
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 12px;
     }
 
     textarea {
-      width: 100%;
-      height: 80px;
-      margin-bottom: 10px;
-      box-sizing: border-box;
+      height: 72px;
+      margin-bottom: 8px;
       resize: vertical;
+    }
+
+    select {
+      margin-bottom: 8px;
+      padding: 6px;
     }
 
     button {
@@ -40,6 +52,23 @@
       cursor: not-allowed;
     }
 
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .tab-btn.active {
+      background: #007bff;
+      color: white;
+    }
+
     .connection-box {
       display: flex;
       align-items: flex-start;
@@ -48,13 +77,157 @@
       padding: 8px;
       border-radius: 6px;
       background: #f3f3f3;
-      font-size: 13px;
-      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .connection-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .connection-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     #connectionText {
       line-height: 1.35;
       word-break: break-word;
+      font-weight: bold;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .link-btn {
+      padding: 0 4px;
+      background: none;
+      color: #007bff;
+      font-size: 11px;
+      font-weight: normal;
+      white-space: nowrap;
+    }
+
+    .link-btn:hover:not(:disabled) {
+      background: none;
+      text-decoration: underline;
+    }
+
+    .linked-tabs-panel {
+      margin-top: 6px;
+      max-height: 140px;
+      overflow-y: auto;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 6px;
+    }
+
+    .linked-tab-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      font-size: 11px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .linked-tab-row:last-child {
+      border-bottom: none;
+    }
+
+    .linked-tab-row.selected {
+      color: #1d4ed8;
+      font-weight: bold;
+    }
+
+    .linked-tab-row button.select-tab {
+      flex: 1;
+      text-align: left;
+      background: none;
+      color: inherit;
+      padding: 0;
+      font-size: 11px;
+      font-weight: inherit;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .linked-tab-row button.select-tab:hover:not(:disabled) {
+      background: none;
+      text-decoration: underline;
+    }
+
+    .linked-tab-row button.ignore-tab {
+      background: none;
+      color: #9ca3af;
+      padding: 0 4px;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .linked-tab-row button.ignore-tab:hover:not(:disabled) {
+      background: none;
+      color: #b91c1c;
+    }
+
+    .linked-tabs-heading {
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      color: #6b7280;
+      margin: 6px 0 4px;
+    }
+
+    .linked-tab-row.ignored {
+      color: #6b7280;
+    }
+
+    .ignored-tab-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .linked-tab-row button.restore-tab {
+      background: none;
+      color: #1d4ed8;
+      padding: 0 4px;
+      font-size: 11px;
+    }
+
+    .linked-tab-row button.restore-tab:hover:not(:disabled) {
+      background: none;
+      text-decoration: underline;
+    }
+
+    .queue-status.checkpoint {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .checkpoint-resume-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      background: #ea580c;
+      flex-shrink: 0;
+    }
+
+    .checkpoint-resume-btn:hover:not(:disabled) {
+      background: #c2410c;
+    }
+
+    #pauseBtn.checkpoint-action {
+      background: #ea580c;
+    }
+
+    #pauseBtn.checkpoint-action:hover:not(:disabled) {
+      background: #c2410c;
     }
 
     .dot {
@@ -63,18 +236,25 @@
       border-radius: 50%;
       background: gray;
       flex-shrink: 0;
+      margin-top: 4px;
     }
 
-    .dot.connected {
-      background: #22c55e;
+    .dot.connected { background: #22c55e; }
+    .dot.disconnected { background: #ef4444; }
+    .dot.checking { background: #f59e0b; }
+
+    .options-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
     }
 
-    .dot.disconnected {
-      background: #ef4444;
-    }
-
-    .dot.checking {
-      background: #f59e0b;
+    .options-row label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .queue-status {
@@ -91,13 +271,14 @@
       color: #b91c1c;
     }
 
-    .queue-status.paused {
+    .queue-status.paused,
+    .queue-status.checkpoint {
       background: #fff7ed;
       color: #c2410c;
     }
 
     #status {
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: 12px;
       min-height: 16px;
     }
@@ -108,48 +289,41 @@
       margin-bottom: 10px;
     }
 
-    .toolbar button {
-      flex: 1;
-    }
+    .toolbar button { flex: 1; }
+    .toolbar button.secondary { background-color: #6b7280; }
+    .toolbar button.secondary:hover:not(:disabled) { background-color: #4b5563; }
+    .toolbar button.danger { background-color: #dc2626; }
+    .toolbar button.danger:hover:not(:disabled) { background-color: #b91c1c; }
 
-    .toolbar button.secondary {
-      background-color: #6b7280;
-    }
+    #queueBtn { width: 100%; margin-bottom: 4px; }
 
-    .toolbar button.secondary:hover:not(:disabled) {
-      background-color: #4b5563;
-    }
-
-    .toolbar button.danger {
-      background-color: #dc2626;
-    }
-
-    .toolbar button.danger:hover:not(:disabled) {
-      background-color: #b91c1c;
-    }
-
-    #queueBtn {
+    .persona-manage {
       width: 100%;
+      margin-bottom: 8px;
+      background: #6b7280;
     }
 
     hr {
-      margin: 15px 0;
+      margin: 12px 0;
       border: 0;
       border-top: 1px solid #eee;
     }
 
-    #queueContainer {
+    #queueContainer,
+    #historyContainer {
       background: #f9f9f9;
       padding: 10px;
       border-radius: 4px;
     }
 
-    #queueContainer h4 {
+    #queueContainer h4,
+    #historyContainer h4 {
       margin: 0 0 10px 0;
       font-size: 14px;
     }
 
-    #queueList {
+    #queueList,
+    #historyList {
       margin: 0;
       padding: 0;
       list-style: none;
@@ -157,12 +331,14 @@
       color: #444;
     }
 
-    .queue-empty {
+    .queue-empty,
+    .history-empty {
       color: #6b7280;
       font-style: italic;
     }
 
-    .queue-item {
+    .queue-item,
+    .history-item {
       background: white;
       border: 1px solid #e5e7eb;
       border-radius: 6px;
@@ -175,14 +351,16 @@
       box-shadow: 0 0 0 1px #007bff inset;
     }
 
-    .queue-item-header {
+    .queue-item-header,
+    .history-item-header {
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
-    .queue-badge {
+    .queue-badge,
+    .history-meta {
       font-size: 10px;
       font-weight: bold;
       text-transform: uppercase;
@@ -193,23 +371,43 @@
       flex-shrink: 0;
     }
 
-    .queue-badge.next {
+    .queue-badge.next,
+    .history-meta {
       background: #e5e7eb;
       color: #374151;
     }
 
-    .queue-preview {
+    .queue-badge.checkpoint {
+      background: #ffedd5;
+      color: #c2410c;
+    }
+
+    .queue-preview,
+    .history-preview {
       word-break: break-word;
       line-height: 1.35;
     }
 
-    .queue-actions {
+    .queue-meta {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+
+    .checkpoint-row {
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+
+    .queue-actions,
+    .history-actions {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 4px;
     }
 
-    .queue-actions button {
+    .queue-actions button,
+    .history-actions button {
       min-width: 0;
       padding: 4px 4px;
       font-size: 11px;
@@ -222,18 +420,202 @@
       border: 1px solid #d1d5db;
     }
 
-    .queue-actions button:hover:not(:disabled) {
+    .queue-actions button:hover:not(:disabled),
+    .history-actions button:hover:not(:disabled) {
       background-color: #e5e7eb;
     }
 
-    .queue-actions button.danger {
-      color: #b91c1c;
-    }
+    .queue-actions button.danger,
+    .history-actions button.danger { color: #b91c1c; }
 
-    .queue-actions button.primary {
+    .queue-actions button.primary,
+    .history-actions button.primary {
       color: #1d4ed8;
       border-color: #93c5fd;
       background: #eff6ff;
+    }
+
+    .hidden { display: none; }
+
+    #broadcastPanel {
+      margin-bottom: 8px;
+      padding: 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+
+    .broadcast-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #374151;
+    }
+
+    .broadcast-header .link-btn {
+      padding: 0 4px;
+      background: none;
+      color: #007bff;
+      font-size: 11px;
+      font-weight: normal;
+    }
+
+    .broadcast-header .link-btn:hover:not(:disabled) {
+      background: none;
+      text-decoration: underline;
+    }
+
+    #broadcastTabList {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .broadcast-tab-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 4px 0;
+      font-size: 11px;
+      line-height: 1.3;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .broadcast-tab-item:last-child {
+      border-bottom: none;
+    }
+
+    .broadcast-tab-item label {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .broadcast-tab-item input {
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    #personaPanel {
+      margin-bottom: 8px;
+      padding: 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+
+    .persona-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #374151;
+    }
+
+    .persona-header .link-btn {
+      padding: 0 4px;
+      background: none;
+      color: #007bff;
+      font-size: 11px;
+      font-weight: normal;
+    }
+
+    .persona-header .link-btn:hover:not(:disabled) {
+      background: none;
+      text-decoration: underline;
+    }
+
+    #personaList {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .persona-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 6px 0;
+      font-size: 11px;
+      line-height: 1.3;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .persona-item:last-child {
+      border-bottom: none;
+    }
+
+    .persona-item-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .persona-item-name {
+      font-weight: bold;
+      color: #111827;
+      margin-bottom: 2px;
+    }
+
+    .persona-item-preview {
+      color: #6b7280;
+      word-break: break-word;
+    }
+
+    .persona-item-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .persona-item-actions button {
+      background: none;
+      color: #007bff;
+      padding: 0 4px;
+      font-size: 11px;
+      min-width: 44px;
+    }
+
+    .persona-item-actions button:hover:not(:disabled) {
+      background: none;
+      text-decoration: underline;
+    }
+
+    .persona-item-actions button.danger {
+      color: #b91c1c;
+    }
+
+    .persona-empty {
+      color: #6b7280;
+      font-style: italic;
+      font-size: 11px;
+    }
+
+    .broadcast-tab-title {
+      word-break: break-word;
+      color: #111827;
+    }
+
+    .broadcast-tab-meta {
+      color: #6b7280;
+      font-size: 10px;
+    }
+
+    .broadcast-empty {
+      font-size: 11px;
+      color: #6b7280;
+      font-style: italic;
     }
   </style>
 </head>
@@ -241,33 +623,88 @@
 <body>
   <h3>Prompt Queue</h3>
 
-  <div class="connection-box">
-    <span id="connectionDot" class="dot checking"></span>
-    <span id="connectionText">Checking connection...</span>
+  <div class="tabs">
+    <button type="button" class="tab-btn active" data-tab="queue">Queue</button>
+    <button type="button" class="tab-btn" data-tab="history">History</button>
   </div>
 
-  <div id="queueStatus" class="queue-status" hidden></div>
+  <div class="connection-box">
+    <span id="connectionDot" class="dot checking"></span>
+    <div class="connection-main">
+      <div class="connection-summary">
+        <span id="connectionText">Checking connection...</span>
+        <button type="button" id="reconnectBtn" class="link-btn hidden">Reconnect</button>
+        <button type="button" id="tabsToggle" class="link-btn hidden">+0 tabs v</button>
+      </div>
+      <div id="linkedTabsPanel" class="linked-tabs-panel hidden"></div>
+    </div>
+  </div>
 
-  <textarea id="promptText" placeholder="Enter your next prompt here..."></textarea>
+  <div id="queuePanel">
+    <div id="queueStatus" class="queue-status hidden"></div>
 
-  <button id="queueBtn">Add to Queue</button>
+    <label for="personaSelect">Persona</label>
+    <select id="personaSelect">
+      <option value="">None</option>
+    </select>
+    <button type="button" id="managePersonaBtn" class="persona-manage">Manage personas</button>
 
-  <div id="status"></div>
-
-  <hr>
-
-  <div id="queueContainer">
-    <h4>Queue</h4>
-
-    <div class="toolbar">
-      <button id="pauseBtn" class="secondary" disabled>Pause</button>
-      <button id="retryBtn" class="secondary" disabled>Retry</button>
-      <button id="clearBtn" class="danger" disabled>Clear</button>
+    <div id="personaPanel" class="hidden">
+      <div class="persona-header">
+        <span>Saved personas</span>
+        <button type="button" id="addPersonaBtn" class="link-btn">Add new</button>
+      </div>
+      <ul id="personaList">
+        <li class="persona-empty">No personas yet</li>
+      </ul>
     </div>
 
-    <ul id="queueList">
-      <li class="queue-empty">Queue is empty</li>
-    </ul>
+    <textarea id="promptText" placeholder="Enter your next prompt here..."></textarea>
+
+    <div class="options-row">
+      <label><input type="checkbox" id="pauseHereAdd"> Hold before sending</label>
+      <label><input type="checkbox" id="broadcastToggle"> Broadcast</label>
+    </div>
+
+    <div id="broadcastPanel" class="hidden">
+      <div class="broadcast-header">
+        <span>Send to tabs</span>
+        <button type="button" id="broadcastSelectAll" class="link-btn">All</button>
+        <button type="button" id="broadcastSelectNone" class="link-btn">None</button>
+      </div>
+      <ul id="broadcastTabList">
+        <li class="broadcast-empty">No supported tabs open</li>
+      </ul>
+    </div>
+
+    <button type="button" id="queueBtn">Add to Queue</button>
+    <div id="status"></div>
+
+    <hr>
+
+    <div id="queueContainer">
+      <h4>Queue</h4>
+
+      <div class="toolbar">
+        <button type="button" id="pauseBtn" class="secondary" disabled>Pause</button>
+        <button type="button" id="retryBtn" class="secondary" disabled>Retry</button>
+        <button type="button" id="clearBtn" class="danger" disabled>Clear</button>
+      </div>
+
+      <ul id="queueList">
+        <li class="queue-empty">Queue is empty</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="historyPanel" class="hidden">
+    <div id="historyContainer">
+      <h4>Prompt history</h4>
+      <ul id="historyList">
+        <li class="history-empty">No prompts sent yet</li>
+      </ul>
+
+    </div>
   </div>
 
   <script src="popup.js"></script>
