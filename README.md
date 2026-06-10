@@ -1,4 +1,4 @@
-# Prompt Orchestrator
+# Prompt Flood
 
 **Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, DeepSeek, and Perplexity.**
 
@@ -19,7 +19,7 @@ Most LLM chat UIs are built for one prompt at a time. When you are running a res
 - Repeating the same prefix/suffix instructions on every message
 - Juggling multiple model tabs without a central control panel
 
-**Prompt Orchestrator** turns each supported chat tab into a reliable prompt runner with a compact popup command center.
+**Prompt Flood** turns each supported chat tab into a reliable prompt runner with a compact popup command center.
 
 ---
 
@@ -150,7 +150,7 @@ Refresh any open supported chat tabs once so the latest content script is active
 ## Quick start
 
 1. Open a supported chat (e.g. ChatGPT)
-2. Click the **Prompt Orchestrator** extension icon
+2. Click the **Prompt Flood** extension icon
 3. Confirm the green connection dot and site label at the top
 4. Type your first prompt and click **Add to Queue**
 5. The extension waits for the model to be idle, sends the prompt, then continues down the queue
@@ -263,4 +263,4 @@ Issues and pull requests are welcome. When adding a new platform, extend `platfo
 
 Built for power users who treat LLM chats like a pipeline — not a single message at a time.
 
-**Prompt Orchestrator** — queue, pause, and broadcast across ChatGPT, Gemini, Claude, Kimi, DeepSeek, and Perplexity.
+**Prompt Flood** — queue, pause, and broadcast across ChatGPT, Gemini, Claude, Kimi, DeepSeek, and Perplexity.
