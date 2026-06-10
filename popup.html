@@ -11,8 +11,24 @@
       margin: 0;
     }
 
-    h3 {
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin: 0 0 10px 0;
+    }
+
+    .app-header img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .app-header h3 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.2;
     }
 
     textarea,
@@ -621,7 +637,10 @@
 </head>
 
 <body>
-  <h3>Prompt Flood</h3>
+  <div class="app-header">
+    <img src="assets/logo.png" alt="Prompt Flood logo" width="28" height="28">
+    <h3>Prompt Flood</h3>
+  </div>
 
   <div class="tabs">
     <button type="button" class="tab-btn active" data-tab="queue">Queue</button>

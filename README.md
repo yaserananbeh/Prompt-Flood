@@ -1,5 +1,9 @@
 # Prompt Flood
 
+<p align="center">
+  <img src="assets/logo.png" alt="Prompt Flood logo" width="120">
+</p>
+
 **Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, DeepSeek, and Perplexity.**
 
 A Chrome extension built for multi-step AI workflows: chain prompts, pause for review, reuse personas, broadcast to multiple chats, and pick up exactly where you left off after a refresh.
