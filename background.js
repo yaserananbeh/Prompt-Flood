@@ -14,9 +14,7 @@ const DEFAULT_PERSONAS = [
   }
 ];
 
-const HISTORY_KEY = "promptHistory";
 const PERSONAS_KEY = "personas";
-const MAX_HISTORY = 500;
 
 const SUPPORTED_HOSTS = [
   "chatgpt.com",
@@ -37,18 +35,6 @@ async function ensureDefaultPersonas() {
   if (!Array.isArray(data[PERSONAS_KEY]) || data[PERSONAS_KEY].length === 0) {
     await chrome.storage.local.set({ [PERSONAS_KEY]: DEFAULT_PERSONAS });
   }
-}
-
-async function appendHistoryEntry(entry) {
-  const data = await chrome.storage.local.get(HISTORY_KEY);
-  const history = Array.isArray(data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
-  history.unshift(entry);
-
-  if (history.length > MAX_HISTORY) {
-    history.length = MAX_HISTORY;
-  }
-
-  await chrome.storage.local.set({ [HISTORY_KEY]: history });
 }
 
 async function injectContentScript(tabId) {
@@ -138,6 +124,7 @@ async function configureSidePanel() {
 chrome.runtime.onInstalled.addListener(() => {
   ensureDefaultPersonas();
   configureSidePanel();
+  chrome.storage.local.remove("promptHistory");
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -152,13 +139,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch((error) =>
         sendResponse({ ok: false, connected: false, error: error.message })
       );
-    return true;
-  }
-
-  if (request.action === "log_history") {
-    appendHistoryEntry(request.entry)
-      .then(() => sendResponse({ ok: true }))
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
@@ -222,19 +202,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         );
         await chrome.storage.local.set({ [PERSONAS_KEY]: personas });
         sendResponse({ ok: true, personas });
-      })
-      .catch((error) => sendResponse({ ok: false, error: error.message }));
-    return true;
-  }
-
-  if (request.action === "get_history") {
-    chrome.storage.local
-      .get(HISTORY_KEY)
-      .then((data) => {
-        sendResponse({
-          ok: true,
-          history: data[HISTORY_KEY] || []
-        });
       })
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;

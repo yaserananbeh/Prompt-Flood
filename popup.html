@@ -173,17 +173,36 @@
       gap: 10px;
     }
 
+    #queueChrome {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
     /* Cards */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       box-shadow: var(--shadow-sm);
-      overflow: hidden;
+      overflow: visible;
+      position: relative;
+      z-index: 0;
+    }
+
+    .card.tip-layer-open {
+      z-index: 100;
+    }
+
+    #queuePanel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .card-section {
       padding: 12px;
+      overflow: visible;
     }
 
     .card-section + .card-section {
@@ -655,6 +674,7 @@
       flex-wrap: wrap;
       gap: 8px;
       margin-bottom: 10px;
+      overflow: visible;
     }
 
     .toggle-chip {
@@ -687,6 +707,119 @@
       cursor: pointer;
     }
 
+    .toggle-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      position: relative;
+      z-index: 0;
+    }
+
+    .toggle-row.tip-layer-open {
+      z-index: 200;
+    }
+
+    .settings-toggle-list .toggle-row {
+      display: flex;
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .settings-toggle-list {
+      overflow: visible;
+    }
+
+    .info-tip {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: help;
+      flex-shrink: 0;
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .info-tip svg {
+      width: 14px;
+      height: 14px;
+      display: block;
+    }
+
+    .info-tip.is-open,
+    .info-tip:hover,
+    .info-tip:focus-visible {
+      color: var(--primary);
+      background: var(--primary-soft);
+      outline: none;
+      z-index: 201;
+    }
+
+    .info-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: 240px;
+      padding: 8px 10px;
+      background: #1e293b;
+      color: #f8fafc;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.45;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity var(--transition), visibility var(--transition);
+      z-index: 202;
+      text-align: left;
+      white-space: normal;
+    }
+
+    .info-tip::before {
+      content: "";
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-bottom-color: #1e293b;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity var(--transition), visibility var(--transition);
+      z-index: 202;
+    }
+
+    .info-tip.is-open::after,
+    .info-tip.is-open::before {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .info-tip.tooltip-above::after {
+      top: auto;
+      bottom: calc(100% + 8px);
+    }
+
+    .info-tip.tooltip-above::before {
+      top: auto;
+      bottom: calc(100% + 2px);
+      border-bottom-color: transparent;
+      border-top-color: #1e293b;
+    }
+
     /* Panels */
     .sub-panel {
       padding: 10px;
@@ -701,6 +834,9 @@
       align-items: center;
       gap: 8px;
       margin-bottom: 8px;
+      position: relative;
+      z-index: 0;
+      overflow: visible;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
@@ -788,8 +924,7 @@
       font-size: 11px;
     }
 
-    #queueList,
-    #historyList {
+    #queueList {
       margin: 0;
       padding: 0;
       list-style: none;
@@ -797,8 +932,7 @@
       overflow-y: auto;
     }
 
-    .queue-empty,
-    .history-empty {
+    .queue-empty {
       color: var(--text-muted);
       font-size: 12px;
       text-align: center;
@@ -806,18 +940,23 @@
       font-style: normal;
     }
 
-    .queue-item,
-    .history-item {
+    .queue-item {
       background: var(--surface-muted);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       padding: 10px;
       margin-bottom: 8px;
       transition: border-color var(--transition), box-shadow var(--transition);
+      position: relative;
+      z-index: 0;
+      overflow: visible;
     }
 
-    .queue-item:last-child,
-    .history-item:last-child {
+    .queue-item.tip-layer-open {
+      z-index: 200;
+    }
+
+    .queue-item:last-child {
       margin-bottom: 0;
     }
 
@@ -827,16 +966,14 @@
       background: var(--primary-soft);
     }
 
-    .queue-item-header,
-    .history-item-header {
+    .queue-item-header {
       display: flex;
       align-items: flex-start;
       gap: 8px;
       margin-bottom: 6px;
     }
 
-    .queue-badge,
-    .history-meta {
+    .queue-badge {
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
@@ -848,15 +985,13 @@
       flex-shrink: 0;
     }
 
-    .queue-badge.next,
-    .history-meta {
+    .queue-badge.next {
       background: var(--surface);
       color: var(--text-secondary);
       border: 1px solid var(--border);
     }
 
-    .queue-preview,
-    .history-preview {
+    .queue-preview {
       flex: 1;
       min-width: 0;
       word-break: break-word;
@@ -871,11 +1006,15 @@
       margin-bottom: 6px;
     }
 
+    .queue-item .toggle-row {
+      margin-bottom: 8px;
+    }
+
     .checkpoint-row {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      margin-bottom: 8px;
+      margin-bottom: 0;
       font-size: 11px;
       font-weight: 500;
       color: var(--text-secondary);
@@ -891,15 +1030,13 @@
       margin: 0;
     }
 
-    .queue-actions,
-    .history-actions {
+    .queue-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
     }
 
-    .queue-actions button,
-    .history-actions button {
+    .queue-actions button {
       padding: 4px 8px;
       font-size: 10px;
       font-weight: 600;
@@ -911,14 +1048,12 @@
       min-width: 0;
     }
 
-    .queue-actions button:hover:not(:disabled),
-    .history-actions button:hover:not(:disabled) {
+    .queue-actions button:hover:not(:disabled) {
       background: var(--border);
       color: var(--text);
     }
 
-    .queue-actions button.danger,
-    .history-actions button.danger {
+    .queue-actions button.danger {
       color: var(--danger);
       border-color: rgba(239, 68, 68, 0.25);
       background: var(--danger-soft);
@@ -929,8 +1064,7 @@
       color: white;
     }
 
-    .queue-actions button.primary,
-    .history-actions button.primary {
+    .queue-actions button.primary {
       color: var(--primary);
       border-color: rgba(59, 130, 246, 0.3);
       background: var(--primary-soft);
@@ -944,10 +1078,10 @@
     /* Broadcast & persona lists */
     #broadcastTabList,
     #personaList {
-      margin: 0;
+      margin: 8px 0 0;
       padding: 0;
       list-style: none;
-      max-height: 120px;
+      max-height: min(40vh, 240px);
       overflow-y: auto;
     }
 
@@ -1266,6 +1400,74 @@
     #llmLauncher.llm-launcher-collapsed .llm-launcher-header {
       margin-bottom: 0;
     }
+
+    /* Settings */
+    .settings-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: visible;
+      position: relative;
+      z-index: 0;
+    }
+
+    .sub-panel-header.tip-layer-open {
+      z-index: 100;
+    }
+
+    .settings-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .settings-group-header .settings-group-title {
+      margin-bottom: 0;
+    }
+
+    .settings-group-title {
+      margin: 0 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .settings-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .settings-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .settings-toggle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .settings-hint {
+      margin: 0;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .settings-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .settings-actions .btn {
+      flex: 1;
+      min-width: 120px;
+    }
   </style>
 </head>
 
@@ -1281,10 +1483,11 @@
 
     <nav class="tabs" role="tablist">
       <button type="button" class="tab-btn active" data-tab="queue" role="tab" aria-selected="true">Queue</button>
-      <button type="button" class="tab-btn" data-tab="history" role="tab" aria-selected="false">History</button>
+      <button type="button" class="tab-btn" data-tab="settings" role="tab" aria-selected="false">Settings</button>
     </nav>
 
     <div class="app-body">
+      <div id="queueChrome">
       <div class="connection-box">
         <span id="connectionDot" class="dot checking" aria-hidden="true"></span>
         <div class="connection-main">
@@ -1315,6 +1518,7 @@
           </div>
         </div>
       </div>
+      </div>
 
       <div id="queuePanel">
         <div id="queueStatus" class="queue-status hidden" role="status"></div>
@@ -1323,22 +1527,9 @@
           <div class="card-section">
             <div class="field-group">
               <span class="field-label">Persona</span>
-              <div class="field-row">
-                <select id="personaSelect" aria-label="Select persona">
-                  <option value="">None</option>
-                </select>
-                <button type="button" id="managePersonaBtn" class="btn btn-ghost">Manage</button>
-              </div>
-            </div>
-
-            <div id="personaPanel" class="sub-panel hidden">
-              <div class="sub-panel-header">
-                <span>Saved personas</span>
-                <button type="button" id="addPersonaBtn" class="link-btn">+ Add new</button>
-              </div>
-              <ul id="personaList">
-                <li class="persona-empty">No personas yet</li>
-              </ul>
+              <select id="personaSelect" aria-label="Select persona">
+                <option value="">None</option>
+              </select>
             </div>
 
             <div class="field-group">
@@ -1347,19 +1538,32 @@
             </div>
 
             <div class="options-row">
-              <label class="toggle-chip">
-                <input type="checkbox" id="pauseHereAdd">
-                Hold before sending
-              </label>
-              <label class="toggle-chip">
-                <input type="checkbox" id="broadcastToggle">
-                Broadcast
-              </label>
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="pauseHereAdd">
+                  Hold before sending
+                </label>
+                <button type="button" class="info-tip" data-tip="Pauses the queue after this prompt is sent so you can review the AI response before the next prompt goes out." aria-label="About hold before sending">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="broadcastToggle">
+                  Broadcast
+                </label>
+                <button type="button" class="info-tip" data-tip="Send the same prompt to multiple open chat tabs at once. Pick which tabs to include in the list below before adding." aria-label="About broadcast">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
             </div>
 
             <div id="broadcastPanel" class="sub-panel hidden">
               <div class="sub-panel-header">
                 <span>Send to tabs</span>
+                <button type="button" class="info-tip" data-tip="Checked tabs receive a copy of this prompt in their queue. Use All or None to quickly select every supported chat tab." aria-label="About tab selection">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
                 <button type="button" id="broadcastSelectAll" class="link-btn">All</button>
                 <button type="button" id="broadcastSelectNone" class="link-btn">None</button>
               </div>
@@ -1392,15 +1596,109 @@
         </div>
       </div>
 
-      <div id="historyPanel" class="hidden">
+      <div id="settingsPanel" class="settings-panel hidden">
         <div class="card">
           <div class="card-section">
-            <div class="queue-header">
-              <h4>Prompt history</h4>
+            <div class="settings-group-header">
+              <h4 class="settings-group-title">Personas</h4>
+              <button type="button" id="addPersonaBtn" class="link-btn">+ Add new</button>
             </div>
-            <ul id="historyList">
-              <li class="history-empty">No prompts sent yet</li>
+            <p class="settings-hint">Optional prefix and suffix text wrapped around every prompt. Manage personas here; pick one per prompt on the Queue tab.</p>
+            <ul id="personaList">
+              <li class="persona-empty">No personas yet</li>
             </ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-section">
+            <h4 class="settings-group-title">Queue defaults</h4>
+
+            <div class="settings-row">
+              <label class="field-label" for="settingsDefaultPersona">Default persona</label>
+              <select id="settingsDefaultPersona" aria-label="Default persona">
+                <option value="">None</option>
+              </select>
+              <p class="settings-hint">Pre-selected when you compose a new prompt.</p>
+            </div>
+
+            <div class="settings-toggle-list">
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="settingsDefaultHold">
+                  Default "Hold before sending"
+                </label>
+                <button type="button" class="info-tip" data-tip="New prompts start with Hold before sending already checked. Handy if you usually review each AI response before continuing." aria-label="About default hold before sending">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="settingsClearPrompt">
+                  Clear prompt after adding to queue
+                </label>
+                <button type="button" class="info-tip" data-tip="Empties the prompt box after you add to the queue or broadcast. Turn off to keep the text for quick edits and resends." aria-label="About clear prompt after add">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="settingsConfirmClear">
+                  Confirm before clearing the queue
+                </label>
+                <button type="button" class="info-tip" data-tip="Shows a confirmation dialog before removing every queued prompt. Disable if you clear the queue often and want one less step." aria-label="About confirm clear queue">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-section">
+            <h4 class="settings-group-title">Behavior</h4>
+
+            <div class="settings-row">
+              <label class="field-label" for="settingsRefreshInterval">Connection refresh</label>
+              <select id="settingsRefreshInterval" aria-label="Connection refresh interval">
+                <option value="1000">Fast (1 second)</option>
+                <option value="3000" selected>Normal (3 seconds)</option>
+                <option value="5000">Slow (5 seconds)</option>
+                <option value="10000">Very slow (10 seconds)</option>
+              </select>
+              <p class="settings-hint">How often the side panel checks tab connection and queue state.</p>
+            </div>
+
+            <div class="settings-toggle-list">
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="settingsCheckpointSound" checked>
+                  Play sound at checkpoints
+                </label>
+                <button type="button" class="info-tip" data-tip="Plays a short chime in the chat tab when a checkpoint is reached, so you know it's time to review the response and resume." aria-label="About checkpoint sound">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="settingsOpenBackground" checked>
+                  Open new chats in the background
+                </label>
+                <button type="button" class="info-tip" data-tip="Opens new AI chat tabs without switching away from your current tab. Keeps the side panel open while you set up multiple chats." aria-label="About open chats in background">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-section">
+            <h4 class="settings-group-title">Data</h4>
+            <p class="settings-hint">Restore tabs you previously chose to ignore.</p>
+            <div class="settings-actions">
+              <button type="button" id="settingsResetIgnored" class="btn btn-secondary">Reset ignored tabs</button>
+            </div>
           </div>
         </div>
       </div>

@@ -163,6 +163,11 @@
     return Number.isInteger(index) ? index : NaN;
   }
 
+  async function getExtensionSettings() {
+    const data = await chrome.storage.local.get("extensionSettings");
+    return { checkpointSound: data.extensionSettings?.checkpointSound !== false };
+  }
+
   function playCheckpointChime() {
     try {
       const ctx = new AudioContext();
@@ -178,26 +183,6 @@
     } catch (_error) {
       // Ignore if audio is blocked.
     }
-  }
-
-  async function logSuccessfulSend(item) {
-    const platform = getPlatform();
-    if (!platform) return;
-
-    chrome.runtime.sendMessage({
-      action: "log_history",
-      entry: {
-        id: crypto.randomUUID(),
-        timestamp: Date.now(),
-        tabId,
-        site: platform.name,
-        platformId: platform.id,
-        chatId: platform.getChatId(window.location.pathname),
-        text: item.text,
-        personaId: item.personaId,
-        pauseAfter: item.pauseAfter
-      }
-    });
   }
 
   async function init() {
@@ -519,7 +504,6 @@
     }
 
     const sentItem = promptQueue.shift();
-    await logSuccessfulSend(sentItem);
     lastError = null;
     await persistState();
 
@@ -542,7 +526,10 @@
       isPaused = true;
       pauseReason = "checkpoint";
       isProcessing = false;
-      playCheckpointChime();
+      const settings = await getExtensionSettings();
+      if (settings.checkpointSound) {
+        playCheckpointChime();
+      }
       await persistState();
       return;
     }

@@ -9,6 +9,36 @@ const SUPPORTED_HOSTS = [
   "perplexity.ai"
 ];
 const IGNORED_TABS_KEY = "ignoredTabIds";
+const SETTINGS_KEY = "extensionSettings";
+
+const DEFAULT_SETTINGS = {
+  refreshIntervalMs: 3000,
+  checkpointSound: true,
+  clearPromptAfterAdd: true,
+  defaultHoldBeforeSending: false,
+  defaultPersonaId: "",
+  openChatsInBackground: true,
+  confirmClearQueue: true
+};
+
+function normalizeSettings(rawSettings = {}) {
+  const merged = { ...DEFAULT_SETTINGS, ...rawSettings };
+  const allowedIntervals = [1000, 3000, 5000, 10000];
+
+  if (!allowedIntervals.includes(merged.refreshIntervalMs)) {
+    merged.refreshIntervalMs = DEFAULT_SETTINGS.refreshIntervalMs;
+  }
+
+  merged.checkpointSound = Boolean(merged.checkpointSound);
+  merged.clearPromptAfterAdd = Boolean(merged.clearPromptAfterAdd);
+  merged.defaultHoldBeforeSending = Boolean(merged.defaultHoldBeforeSending);
+  merged.defaultPersonaId =
+    typeof merged.defaultPersonaId === "string" ? merged.defaultPersonaId : "";
+  merged.openChatsInBackground = Boolean(merged.openChatsInBackground);
+  merged.confirmClearQueue = Boolean(merged.confirmClearQueue);
+
+  return merged;
+}
 const SUPPORTED_LLMS = [
   {
     id: "chatgpt",
@@ -69,8 +99,6 @@ const pauseBtn = document.getElementById("pauseBtn");
 const retryBtn = document.getElementById("retryBtn");
 const clearBtn = document.getElementById("clearBtn");
 const personaSelect = document.getElementById("personaSelect");
-const managePersonaBtn = document.getElementById("managePersonaBtn");
-const personaPanel = document.getElementById("personaPanel");
 const personaList = document.getElementById("personaList");
 const addPersonaBtn = document.getElementById("addPersonaBtn");
 const pauseHereAdd = document.getElementById("pauseHereAdd");
@@ -79,9 +107,17 @@ const broadcastPanel = document.getElementById("broadcastPanel");
 const broadcastTabList = document.getElementById("broadcastTabList");
 const broadcastSelectAll = document.getElementById("broadcastSelectAll");
 const broadcastSelectNone = document.getElementById("broadcastSelectNone");
+const queueChrome = document.getElementById("queueChrome");
 const queuePanel = document.getElementById("queuePanel");
-const historyPanel = document.getElementById("historyPanel");
-const historyList = document.getElementById("historyList");
+const settingsPanel = document.getElementById("settingsPanel");
+const settingsDefaultPersona = document.getElementById("settingsDefaultPersona");
+const settingsDefaultHold = document.getElementById("settingsDefaultHold");
+const settingsClearPrompt = document.getElementById("settingsClearPrompt");
+const settingsConfirmClear = document.getElementById("settingsConfirmClear");
+const settingsRefreshInterval = document.getElementById("settingsRefreshInterval");
+const settingsCheckpointSound = document.getElementById("settingsCheckpointSound");
+const settingsOpenBackground = document.getElementById("settingsOpenBackground");
+const settingsResetIgnored = document.getElementById("settingsResetIgnored");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const personaModal = document.getElementById("personaModal");
 const personaModalTitle = document.getElementById("personaModalTitle");
@@ -120,8 +156,73 @@ let linkedTabsExpanded = false;
 let ignoredTabsCache = [];
 let lastQueueStateSignature = "";
 let lastLinkedTabsSignature = "";
+let settings = { ...DEFAULT_SETTINGS };
+let statusClearTimer = null;
 
 const GO_TO_TAB_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+const INFO_TIP_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+
+const TOOLTIP_LAYER_MS = 150;
+
+function setInfoTipLayers(button, open) {
+  const layerTargets = [
+    button.closest(".toggle-row"),
+    button.closest(".queue-item"),
+    button.closest(".card"),
+    button.closest(".sub-panel-header")
+  ];
+
+  layerTargets.forEach((element) => {
+    if (!element) return;
+    element.classList.toggle("tip-layer-open", open);
+  });
+}
+
+function bindInfoTip(button) {
+  if (button.dataset.infoTipBound) return;
+  button.dataset.infoTipBound = "1";
+
+  let closeTimer = null;
+
+  const openTip = () => {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
+    button.classList.add("is-open");
+    setInfoTipLayers(button, true);
+  };
+
+  const scheduleCloseTip = () => {
+    if (closeTimer) clearTimeout(closeTimer);
+    button.classList.remove("is-open");
+    closeTimer = setTimeout(() => {
+      setInfoTipLayers(button, false);
+      closeTimer = null;
+    }, TOOLTIP_LAYER_MS);
+  };
+
+  button.addEventListener("mouseenter", openTip);
+  button.addEventListener("mouseleave", scheduleCloseTip);
+  button.addEventListener("focus", openTip);
+  button.addEventListener("blur", scheduleCloseTip);
+  button.addEventListener("click", (event) => event.preventDefault());
+}
+
+function createInfoTip(text, ariaLabel = "More info", { above = false } = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = above ? "info-tip tooltip-above" : "info-tip";
+  button.dataset.tip = text;
+  button.setAttribute("aria-label", ariaLabel);
+  button.innerHTML = INFO_TIP_ICON;
+  bindInfoTip(button);
+  return button;
+}
+
+function initInfoTips() {
+  document.querySelectorAll(".info-tip").forEach((button) => bindInfoTip(button));
+}
 
 async function goToTab(tabId) {
   if (!Number.isInteger(tabId) || tabId <= 0) return false;
@@ -238,24 +339,31 @@ async function openLlmChat(llm) {
   llmLauncherUserExpanded = true;
   updateLlmLauncher();
   setLlmLauncherBusy(llm.id);
-  setStatus(`Opening ${llm.name} in the background...`, "");
+  const openInBackground = settings.openChatsInBackground;
+  setStatus(
+    openInBackground
+      ? `Opening ${llm.name} in the background...`
+      : `Opening ${llm.name}...`,
+    ""
+  );
 
   try {
-    const tab = await chrome.tabs.create({ url: llm.url, active: false });
+    const tab = await chrome.tabs.create({
+      url: llm.url,
+      active: !openInBackground
+    });
     if (tab?.id && !managedTabId) {
       managedTabId = tab.id;
     }
 
-    setStatus(`${llm.name} opened in a new tab.`, "success");
+    setStatus(
+      openInBackground
+        ? `${llm.name} opened in a background tab.`
+        : `${llm.name} opened in a new tab.`,
+      "success"
+    );
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await refreshLinkedTabs({ showChecking: false });
-
-    setTimeout(() => {
-      const statusText = statusDiv.querySelector("span");
-      if (statusText?.innerText.includes("opened in a new tab")) {
-        setStatus("", "");
-      }
-    }, 3000);
   } catch (_error) {
     setStatus(`Could not open ${llm.name}.`, "error");
   } finally {
@@ -263,29 +371,154 @@ async function openLlmChat(llm) {
   }
 }
 
-async function findTabForHistoryEntry(entry) {
-  if (entry.tabId) {
-    try {
-      await chrome.tabs.get(entry.tabId);
-      return entry.tabId;
-    } catch (_error) {
-      // Tab closed; fall through to URL matching.
-    }
+async function persistSettings(partial) {
+  try {
+    const data = await chrome.storage.local.get(SETTINGS_KEY);
+    settings = normalizeSettings({ ...data[SETTINGS_KEY], ...partial });
+    await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+    return true;
+  } catch (_error) {
+    setStatus("Could not save settings.", "error");
+    return false;
   }
-
-  if (!entry.chatId) return null;
-
-  const tabs = await chrome.tabs.query({});
-  const match = tabs.find((tab) => {
-    if (!tab.id || !isSupportedChatUrl(tab.url)) return false;
-    if (entry.site && getSiteFromUrl(tab.url) !== entry.site) return false;
-    return getChatIdFromUrl(tab.url) === entry.chatId;
-  });
-
-  return match?.id || null;
 }
 
-function setStatus(message, tone = "", { tabId = null } = {}) {
+function applyQueueDefaultsFromSettings() {
+  pauseHereAdd.checked = Boolean(settings.defaultHoldBeforeSending);
+
+  if (
+    settings.defaultPersonaId &&
+    personas.some((persona) => persona.id === settings.defaultPersonaId)
+  ) {
+    personaSelect.value = settings.defaultPersonaId;
+  }
+}
+
+function renderSettingsPersonaOptions() {
+  const selected = settingsDefaultPersona.value;
+  settingsDefaultPersona.innerHTML = '<option value="">None</option>';
+
+  personas.forEach((persona) => {
+    const option = document.createElement("option");
+    option.value = persona.id;
+    option.innerText = persona.name;
+    settingsDefaultPersona.appendChild(option);
+  });
+
+  const preferred = settings.defaultPersonaId || selected;
+  if (preferred && personas.some((persona) => persona.id === preferred)) {
+    settingsDefaultPersona.value = preferred;
+  }
+}
+
+function applySettingsToForm() {
+  settingsDefaultHold.checked = Boolean(settings.defaultHoldBeforeSending);
+  settingsClearPrompt.checked = Boolean(settings.clearPromptAfterAdd);
+  settingsConfirmClear.checked = Boolean(settings.confirmClearQueue);
+  settingsRefreshInterval.value = String(settings.refreshIntervalMs);
+  settingsCheckpointSound.checked = Boolean(settings.checkpointSound);
+  settingsOpenBackground.checked = Boolean(settings.openChatsInBackground);
+  renderSettingsPersonaOptions();
+}
+
+async function loadSettings() {
+  try {
+    const data = await chrome.storage.local.get(SETTINGS_KEY);
+    settings = normalizeSettings(data[SETTINGS_KEY]);
+  } catch (_error) {
+    settings = { ...DEFAULT_SETTINGS };
+  }
+
+  applySettingsToForm();
+  applyQueueDefaultsFromSettings();
+  restartPollTimer();
+}
+
+function restartPollTimer() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+  }
+
+  pollTimer = setInterval(
+    () => refreshLinkedTabs({ showChecking: false }),
+    settings.refreshIntervalMs || 3000
+  );
+}
+
+function bindSettingsControls() {
+  settingsDefaultPersona.addEventListener("change", async () => {
+    const saved = await persistSettings({
+      defaultPersonaId: settingsDefaultPersona.value
+    });
+    if (saved) applyQueueDefaultsFromSettings();
+  });
+
+  settingsDefaultHold.addEventListener("change", async () => {
+    const saved = await persistSettings({
+      defaultHoldBeforeSending: settingsDefaultHold.checked
+    });
+    if (saved) pauseHereAdd.checked = settings.defaultHoldBeforeSending;
+  });
+
+  settingsClearPrompt.addEventListener("change", () => {
+    persistSettings({ clearPromptAfterAdd: settingsClearPrompt.checked });
+  });
+
+  settingsConfirmClear.addEventListener("change", () => {
+    persistSettings({ confirmClearQueue: settingsConfirmClear.checked });
+  });
+
+  settingsRefreshInterval.addEventListener("change", async () => {
+    const saved = await persistSettings({
+      refreshIntervalMs: Number(settingsRefreshInterval.value)
+    });
+    if (saved) restartPollTimer();
+  });
+
+  settingsCheckpointSound.addEventListener("change", () => {
+    persistSettings({ checkpointSound: settingsCheckpointSound.checked });
+  });
+
+  settingsOpenBackground.addEventListener("change", () => {
+    persistSettings({ openChatsInBackground: settingsOpenBackground.checked });
+  });
+
+  settingsResetIgnored.addEventListener("click", async () => {
+    const confirmed = await showConfirmDialog({
+      title: "Reset ignored tabs",
+      message: "Start managing all supported chat tabs again?",
+      confirmLabel: "Reset"
+    });
+    if (!confirmed) return;
+
+    try {
+      await chrome.storage.local.remove(IGNORED_TABS_KEY);
+    } catch (_error) {
+      setStatus("Could not reset ignored tabs.", "error");
+      return;
+    }
+
+    lastLinkedTabsSignature = "";
+    await refreshLinkedTabs({ showChecking: true });
+    switchTab("queue");
+    setStatus("Ignored tabs reset.", "success");
+  });
+}
+
+function getStatusAutoClearMs(tone, duration) {
+  if (duration === 0) return 0;
+  if (typeof duration === "number" && duration > 0) return duration;
+  if (tone === "green" || tone === "success") return 3500;
+  if (tone === "red" || tone === "error") return 5000;
+  return 0;
+}
+
+function setStatus(message, tone = "", { tabId = null, duration } = {}) {
+  if (statusClearTimer) {
+    clearTimeout(statusClearTimer);
+    statusClearTimer = null;
+  }
+
   statusDiv.innerHTML = "";
   statusDiv.classList.remove("success", "error", "has-go-to-tab");
 
@@ -306,6 +539,14 @@ function setStatus(message, tone = "", { tabId = null } = {}) {
     statusDiv.classList.add("success");
   } else if (tone === "red" || tone === "error") {
     statusDiv.classList.add("error");
+  }
+
+  const autoClearMs = getStatusAutoClearMs(tone, duration);
+  if (autoClearMs > 0) {
+    statusClearTimer = setTimeout(() => {
+      statusClearTimer = null;
+      setStatus("", "", { duration: 0 });
+    }, autoClearMs);
   }
 }
 
@@ -1080,9 +1321,15 @@ function renderPersonaOptions() {
 
   if (selectedId && personas.some((persona) => persona.id === selectedId)) {
     personaSelect.value = selectedId;
+  } else if (
+    settings.defaultPersonaId &&
+    personas.some((persona) => persona.id === settings.defaultPersonaId)
+  ) {
+    personaSelect.value = settings.defaultPersonaId;
   }
 
   renderPersonaList();
+  renderSettingsPersonaOptions();
 }
 
 function renderPersonaList() {
@@ -1135,10 +1382,6 @@ function renderPersonaList() {
     li.appendChild(actions);
     personaList.appendChild(li);
   });
-}
-
-function setPersonaPanelVisible(visible) {
-  personaPanel.classList.toggle("hidden", !visible);
 }
 
 async function promptForPersonaDetails(persona = null) {
@@ -1269,6 +1512,9 @@ function renderQueue(state) {
     if (item.pauseAfter) metaParts.push("Pause after send");
     meta.innerText = metaParts.join(" | ");
 
+    const checkpointWrap = document.createElement("div");
+    checkpointWrap.className = "toggle-row";
+
     const checkpointRow = document.createElement("label");
     checkpointRow.className = "checkpoint-row";
     const checkpointInput = document.createElement("input");
@@ -1281,6 +1527,13 @@ function renderQueue(state) {
     });
     checkpointRow.appendChild(checkpointInput);
     checkpointRow.append(" Pause here");
+    checkpointWrap.appendChild(checkpointRow);
+    checkpointWrap.appendChild(
+      createInfoTip(
+        "Pauses the queue after this prompt sends so you can review the response before the next one goes out.",
+        "About pause here"
+      )
+    );
 
     const actions = document.createElement("div");
     actions.className = "queue-actions";
@@ -1338,7 +1591,7 @@ function renderQueue(state) {
 
     li.appendChild(header);
     if (metaParts.length) li.appendChild(meta);
-    li.appendChild(checkpointRow);
+    li.appendChild(checkpointWrap);
     li.appendChild(actions);
     queueList.appendChild(li);
   });
@@ -1549,92 +1802,6 @@ async function loadPersonas() {
   }
 }
 
-async function loadHistoryView() {
-  const response = await runtimeMessage({ action: "get_history" });
-  if (!response.ok) return;
-
-  renderHistory(response.history || []);
-}
-
-async function renderHistory(history) {
-  historyList.innerHTML = "";
-
-  if (!history.length) {
-    const empty = document.createElement("li");
-    empty.className = "history-empty";
-    empty.innerText = "No prompts sent yet";
-    historyList.appendChild(empty);
-    return;
-  }
-
-  const tabIds = await Promise.all(
-    history.slice(0, 50).map((entry) => findTabForHistoryEntry(entry))
-  );
-
-  history.slice(0, 50).forEach((entry, index) => {
-    const li = document.createElement("li");
-    li.className = "history-item";
-
-    const header = document.createElement("div");
-    header.className = "history-item-header";
-
-    const meta = document.createElement("span");
-    meta.className = "history-meta";
-    meta.innerText = entry.site;
-
-    const preview = document.createElement("span");
-    preview.className = "history-preview";
-    preview.title = entry.text;
-    preview.innerText = truncate(entry.text, 70);
-
-    header.appendChild(meta);
-    header.appendChild(preview);
-
-    const tabId = tabIds[index];
-    if (tabId) {
-      header.appendChild(
-        createGoToTabButton(tabId, {
-          compact: true,
-          title: `Go to ${entry.site} chat`
-        })
-      );
-    }
-
-    const time = document.createElement("div");
-    time.className = "queue-meta";
-    time.innerText = new Date(entry.timestamp).toLocaleString();
-
-    const actions = document.createElement("div");
-    actions.className = "history-actions";
-    actions.appendChild(
-      createHistoryButton("Re-queue", "primary", () => requeueHistoryEntry(entry))
-    );
-
-    li.appendChild(header);
-    li.appendChild(time);
-    li.appendChild(actions);
-    historyList.appendChild(li);
-  });
-}
-
-function createHistoryButton(label, className, onClick) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.innerText = label;
-  if (className) button.classList.add(className);
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-async function requeueHistoryEntry(entry) {
-  switchTab("queue");
-  await sendQueueAction("add_to_queue", {
-    prompt: entry.text,
-    pauseAfter: entry.pauseAfter,
-    personaId: entry.personaId
-  });
-}
-
 function switchTab(tabName) {
   tabButtons.forEach((button) => {
     const isActive = button.dataset.tab === tabName;
@@ -1642,11 +1809,13 @@ function switchTab(tabName) {
     button.setAttribute("aria-selected", isActive ? "true" : "false");
   });
 
+  queueChrome.classList.toggle("hidden", tabName !== "queue");
   queuePanel.classList.toggle("hidden", tabName !== "queue");
-  historyPanel.classList.toggle("hidden", tabName !== "history");
+  settingsPanel.classList.toggle("hidden", tabName !== "settings");
 
-  if (tabName === "history") {
-    loadHistoryView();
+  if (tabName === "settings") {
+    applySettingsToForm();
+    renderPersonaList();
   }
 }
 
@@ -1671,8 +1840,10 @@ queueBtn.addEventListener("click", async () => {
       return;
     }
 
-    promptText.value = "";
-    pauseHereAdd.checked = false;
+    if (settings.clearPromptAfterAdd) {
+      promptText.value = "";
+      pauseHereAdd.checked = settings.defaultHoldBeforeSending;
+    }
     setStatus(
       `Broadcast to ${result.successCount}/${result.total} selected tab${result.total === 1 ? "" : "s"}`,
       result.successCount > 0 ? "green" : "red"
@@ -1684,16 +1855,13 @@ queueBtn.addEventListener("click", async () => {
   const response = await sendQueueAction("add_to_queue", payload);
   if (!isActionSuccess(response)) return;
 
-  promptText.value = "";
-  pauseHereAdd.checked = false;
+  if (settings.clearPromptAfterAdd) {
+    promptText.value = "";
+    pauseHereAdd.checked = settings.defaultHoldBeforeSending;
+  }
   setStatus(`Added! Queue size: ${response.queueLength}`, "success", {
     tabId: managedTabId
   });
-
-  setTimeout(() => {
-    const statusText = statusDiv.querySelector("span");
-    if (statusText?.innerText.startsWith("Added!")) setStatus("", "");
-  }, 4000);
 });
 
 pauseBtn.addEventListener("click", async () => {
@@ -1707,12 +1875,16 @@ retryBtn.addEventListener("click", async () => {
 
 clearBtn.addEventListener("click", async () => {
   if (!latestState?.queueLength) return;
-  const confirmed = await showConfirmDialog({
-    title: "Clear queue",
-    message: "Remove all prompts from the queue? This cannot be undone.",
-    confirmLabel: "Clear all"
-  });
-  if (!confirmed) return;
+
+  if (settings.confirmClearQueue) {
+    const confirmed = await showConfirmDialog({
+      title: "Clear queue",
+      message: "Remove all prompts from the queue? This cannot be undone.",
+      confirmLabel: "Clear all"
+    });
+    if (!confirmed) return;
+  }
+
   await sendQueueAction("clear_queue");
 });
 
@@ -1744,19 +1916,17 @@ goToManagedTabBtn.addEventListener("click", () => {
 broadcastSelectAll.addEventListener("click", () => setBroadcastTabSelection(true));
 broadcastSelectNone.addEventListener("click", () => setBroadcastTabSelection(false));
 
-managePersonaBtn.addEventListener("click", () => {
-  setPersonaPanelVisible(personaPanel.classList.contains("hidden"));
-});
-
 addPersonaBtn.addEventListener("click", () => addPersona());
 
 renderLlmLauncher();
 llmLauncherToggle.addEventListener("click", toggleLlmLauncher);
 updateLlmLauncher(0);
-loadPersonas();
+initInfoTips();
+bindSettingsControls();
+loadSettings().then(() => loadPersonas());
 refreshLinkedTabs({ showChecking: true });
-pollTimer = setInterval(() => refreshLinkedTabs({ showChecking: false }), 3000);
 
 window.addEventListener("unload", () => {
   clearInterval(pollTimer);
+  if (statusClearTimer) clearTimeout(statusClearTimer);
 });
