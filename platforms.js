@@ -124,28 +124,6 @@ globalThis.LLM_PLATFORMS = (() => {
         return match ? match[1] : null;
       }
     },
-    doubao: {
-      id: "doubao",
-      name: "Doubao",
-      host: "doubao.com",
-      editor: [
-        'textarea[data-testid="chat_input_input"]',
-        "textarea.semi-input-textarea",
-        '[data-slate-editor="true"]',
-        'div[contenteditable="true"][role="textbox"]'
-      ],
-      stopButton: '[data-testid="chat_input_local_break_button"]',
-      sendButton: [
-        '[data-testid="chat_input_send_button"]',
-        "#flow-end-msg-send",
-        ".send-btn-wrapper button"
-      ],
-      visibleEditor: true,
-      getChatId(pathname) {
-        const match = pathname.match(/(?:\/code)?\/chat\/([^/?#]+)/i);
-        return match ? match[1] : null;
-      }
-    },
     perplexity: {
       id: "perplexity",
       name: "Perplexity",

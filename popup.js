@@ -1,4 +1,4 @@
-const CONTENT_VERSION = 9;
+const CONTENT_VERSION = 10;
 const SUPPORTED_HOSTS = [
   "chatgpt.com",
   "chat.openai.com",
@@ -6,7 +6,6 @@ const SUPPORTED_HOSTS = [
   "claude.ai",
   "kimi.com",
   "chat.deepseek.com",
-  "doubao.com",
   "perplexity.ai"
 ];
 const IGNORED_TABS_KEY = "ignoredTabIds";
@@ -63,7 +62,6 @@ function getSiteFromUrl(url) {
   if (url.includes("claude.ai")) return "Claude";
   if (url.includes("kimi.com")) return "Kimi";
   if (url.includes("chat.deepseek.com")) return "DeepSeek";
-  if (url.includes("doubao.com")) return "Doubao";
   if (url.includes("perplexity.ai")) return "Perplexity";
   return "Unknown";
 }
@@ -94,11 +92,6 @@ function getChatIdFromUrl(url) {
 
     if (url.includes("chat.deepseek.com")) {
       const match = pathname.match(/\/a\/chat\/s\/([a-z0-9-]+)/i);
-      return match ? match[1] : null;
-    }
-
-    if (url.includes("doubao.com")) {
-      const match = pathname.match(/(?:\/code)?\/chat\/([^/?#]+)/i);
       return match ? match[1] : null;
     }
 

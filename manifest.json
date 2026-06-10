@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Prompt Orchestrator",
-  "version": "2.5.0",
-  "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, DeepSeek, Doubao, and Perplexity. Personas, checkpoints, history.",
+  "version": "2.5.1",
+  "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, DeepSeek, and Perplexity. Personas, checkpoints, history.",
   "permissions": ["activeTab", "scripting", "tabs", "storage"],
   "host_permissions": [
     "*://chatgpt.com/*",
@@ -12,8 +12,6 @@
     "*://kimi.com/*",
     "*://www.kimi.com/*",
     "*://chat.deepseek.com/*",
-    "*://doubao.com/*",
-    "*://www.doubao.com/*",
     "*://perplexity.ai/*",
     "*://www.perplexity.ai/*"
   ],
@@ -33,8 +31,6 @@
         "*://kimi.com/*",
         "*://www.kimi.com/*",
         "*://chat.deepseek.com/*",
-        "*://doubao.com/*",
-        "*://www.doubao.com/*",
         "*://perplexity.ai/*",
         "*://www.perplexity.ai/*"
       ],
