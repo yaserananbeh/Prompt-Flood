@@ -1,5 +1,5 @@
 (() => {
-  const CONTENT_VERSION = 2;
+  const CONTENT_VERSION = 3;
 
   if (globalThis.__LLM_PROMPT_QUEUE__?.version >= CONTENT_VERSION) {
     return;
@@ -16,10 +16,22 @@
       sendButton: 'button[data-testid="send-button"]'
     },
     gemini: {
-      editor: [".ql-editor", 'rich-textarea div[contenteditable="true"]'],
-      stopButton: 'button[aria-label*="Stop"]',
+      editor: [
+        'rich-textarea div[contenteditable="true"]',
+        'div[contenteditable="true"][role="textbox"]',
+        'div[contenteditable="true"][aria-label*="prompt" i]',
+        'div[contenteditable="true"][aria-label*="message" i]',
+        ".ql-editor[contenteditable='true']"
+      ],
+      stopButton: [
+        'button[aria-label="Stop response"]',
+        'button[aria-label*="Stop"]',
+        'button[aria-label*="Cancel"]'
+      ],
       sendButton: [
-        ".send-button",
+        'button[aria-label="Send message"]',
+        'button[aria-label*="Send message"]',
+        "button.send-button",
         'button[aria-label*="Send"]',
         'button[mattooltip*="Send"]'
       ]
@@ -36,6 +48,16 @@
   let isPaused = false;
   let lastError = null;
 
+  function isVisible(element) {
+    if (!element) return false;
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+
+    const style = window.getComputedStyle(element);
+    return style.visibility !== "hidden" && style.display !== "none";
+  }
+
   function queryFirst(selectors) {
     const list = Array.isArray(selectors) ? selectors : [selectors];
 
@@ -47,6 +69,35 @@
     }
 
     return null;
+  }
+
+  function queryVisibleFirst(selectors) {
+    const list = Array.isArray(selectors) ? selectors : [selectors];
+
+    for (const selector of list) {
+      for (const node of document.querySelectorAll(selector)) {
+        if (isVisible(node)) {
+          return node;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function getEditorText(editor) {
+    return (editor.innerText || editor.textContent || "").trim();
+  }
+
+  function editorContainsText(editor, text) {
+    const current = getEditorText(editor);
+    const expected = text.trim();
+
+    if (!expected) return false;
+    if (current === expected) return true;
+
+    const sample = expected.slice(0, Math.min(30, expected.length));
+    return sample.length > 0 && current.includes(sample);
   }
 
   function isChatGPTSite() {
@@ -393,8 +444,12 @@
 
       const checkInterval = setInterval(() => {
         const selectors = isChatGPT ? SELECTORS.chatgpt : SELECTORS.gemini;
-        const editor = queryFirst(selectors.editor);
-        const stopBtn = queryFirst(selectors.stopButton);
+        const editor = isChatGPT
+          ? queryFirst(selectors.editor)
+          : queryVisibleFirst(selectors.editor);
+        const stopBtn = isChatGPT
+          ? queryFirst(selectors.stopButton)
+          : queryVisibleFirst(selectors.stopButton);
         const isReady = Boolean(editor && !stopBtn);
 
         if (isReady) {
@@ -413,6 +468,111 @@
         }
       }, READY_POLL_MS);
     });
+  }
+
+  async function injectGeminiText(editor, text) {
+    editor.focus();
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    let inserted = false;
+
+    try {
+      inserted = document.execCommand("insertText", false, text);
+    } catch (_error) {
+      inserted = false;
+    }
+
+    if (!inserted) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData("text/plain", text);
+      editor.dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData: dataTransfer,
+          bubbles: true,
+          cancelable: true
+        })
+      );
+    }
+
+    if (!editorContainsText(editor, text)) {
+      const textNode = document.createTextNode(text);
+
+      if (selection && selection.rangeCount > 0) {
+        const insertRange = selection.getRangeAt(0);
+        insertRange.insertNode(textNode);
+        insertRange.setStartAfter(textNode);
+        insertRange.collapse(true);
+      } else {
+        editor.appendChild(textNode);
+      }
+    }
+
+    editor.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        inputType: "insertText",
+        data: text
+      })
+    );
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await new Promise((resolve) => setTimeout(resolve, SEND_SETTLE_MS));
+    editor.focus();
+  }
+
+  function findGeminiSendButton() {
+    for (const selector of SELECTORS.gemini.sendButton) {
+      for (const button of document.querySelectorAll(selector)) {
+        if (
+          isVisible(button) &&
+          !button.disabled &&
+          button.getAttribute("aria-disabled") !== "true"
+        ) {
+          return button;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  async function waitForEnabledGeminiSendButton() {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < 3000) {
+      const sendBtn = findGeminiSendButton();
+      if (sendBtn) {
+        return sendBtn;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    return null;
+  }
+
+  async function waitForGeminiSendConfirmation(editor) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < 5000) {
+      if (queryVisibleFirst(SELECTORS.gemini.stopButton)) {
+        return true;
+      }
+
+      if (getEditorText(editor).length === 0) {
+        return true;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    return false;
   }
 
   async function injectText(editor, text) {
@@ -475,13 +635,32 @@
   }
 
   async function handleGemini(text) {
-    const editor = queryFirst(SELECTORS.gemini.editor);
+    const editor = queryVisibleFirst(SELECTORS.gemini.editor);
     if (!editor) {
       console.error("Gemini editor not found.");
       return false;
     }
 
-    await injectText(editor, text);
-    return clickSend(editor, SELECTORS.gemini.sendButton);
+    await injectGeminiText(editor, text);
+
+    if (!editorContainsText(editor, text)) {
+      console.error("Gemini text injection failed.");
+      return false;
+    }
+
+    const sendBtn = await waitForEnabledGeminiSendButton();
+    if (!sendBtn) {
+      console.error("Gemini send button not found or still disabled.");
+      return false;
+    }
+
+    sendBtn.click();
+
+    const confirmed = await waitForGeminiSendConfirmation(editor);
+    if (!confirmed) {
+      console.error("Gemini did not confirm the send.");
+    }
+
+    return confirmed;
   }
 })();

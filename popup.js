@@ -9,7 +9,7 @@ const pauseBtn = document.getElementById("pauseBtn");
 const retryBtn = document.getElementById("retryBtn");
 const clearBtn = document.getElementById("clearBtn");
 
-const CONTENT_VERSION = 2;
+const CONTENT_VERSION = 3;
 
 let activeTabId = null;
 let isConnected = false;
