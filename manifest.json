@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LLM Prompt Queue",
+  "name": "Prompt Orchestrator",
   "version": "2.3.2",
   "description": "Queue prompts for ChatGPT, Gemini, and Claude with personas, checkpoints, history, and broadcast.",
   "permissions": ["activeTab", "scripting", "tabs", "storage"],

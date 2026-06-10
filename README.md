@@ -1,4 +1,4 @@
-# LLM Prompt Queue
+# Prompt Orchestrator
 
 **Queue, automate, and orchestrate prompts across ChatGPT, Gemini, and Claude — without babysitting every send.**
 
@@ -19,7 +19,7 @@ Most LLM chat UIs are built for one prompt at a time. When you are running a res
 - Repeating the same prefix/suffix instructions on every message
 - Juggling multiple model tabs without a central control panel
 
-**LLM Prompt Queue** turns each supported chat tab into a reliable prompt runner with a compact popup command center.
+**Prompt Orchestrator** turns each supported chat tab into a reliable prompt runner with a compact popup command center.
 
 ---
 
@@ -147,7 +147,7 @@ Refresh any open ChatGPT, Gemini, or Claude tabs once so the latest content scri
 ## Quick start
 
 1. Open a supported chat (e.g. ChatGPT)
-2. Click the **LLM Prompt Queue** extension icon
+2. Click the **Prompt Orchestrator** extension icon
 3. Confirm the green connection dot and site label at the top
 4. Type your first prompt and click **Add to Queue**
 5. The extension waits for the model to be idle, sends the prompt, then continues down the queue
@@ -257,4 +257,4 @@ Issues and pull requests are welcome. When adding a new platform, extend `platfo
 
 Built for power users who treat LLM chats like a pipeline — not a single message at a time.
 
-**LLM Prompt Queue** — queue smarter, pause when it matters, and run prompts across every tab you work in.
+**Prompt Orchestrator** — queue smarter, pause when it matters, and run prompts across every tab you work in.

@@ -2,7 +2,7 @@
   const CONTENT_VERSION = 7;
 
   if (!globalThis.LLM_PLATFORMS) {
-    console.error("LLM Prompt Queue: platforms.js must load before content.js.");
+    console.error("Prompt Orchestrator: platforms.js must load before content.js.");
     return;
   }
 
