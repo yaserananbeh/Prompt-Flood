@@ -1,99 +1,237 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      width: 400px;
-      padding: 10px;
-      font-family: sans-serif;
-      margin: 0;
+    :root {
+      --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --bg: #f4f6fb;
+      --surface: #ffffff;
+      --surface-muted: #f8fafc;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --accent-teal: #14b8a6;
+      --accent-blue: #3b82f6;
+      --accent-purple: #7c3aed;
+      --accent-gradient: linear-gradient(135deg, #2dd4bf 0%, #3b82f6 52%, #7c3aed 100%);
+      --accent-gradient-soft: linear-gradient(135deg, rgba(45, 212, 191, 0.12) 0%, rgba(59, 130, 246, 0.12) 52%, rgba(124, 58, 237, 0.12) 100%);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-soft: #eff6ff;
+      --success: #10b981;
+      --success-soft: #ecfdf5;
+      --warning: #f59e0b;
+      --warning-soft: #fffbeb;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --danger-soft: #fef2f2;
+      --info-soft: #eef2ff;
+      --info-text: #4338ca;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 999px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.1);
+      --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      color-scheme: light;
+    }
+
+    body {
+      width: 420px;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
+    /* Header */
     .app-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin: 0 0 10px 0;
+      gap: 10px;
+      padding: 14px 16px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .app-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: var(--accent-gradient);
+      border-radius: var(--radius-full);
+      opacity: 0.85;
     }
 
     .app-header img {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       object-fit: contain;
       flex-shrink: 0;
     }
 
-    .app-header h3 {
+    .app-header-text h1 {
       margin: 0;
-      font-size: 16px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
       line-height: 1.2;
     }
 
-    textarea,
-    select {
-      width: 100%;
-      box-sizing: border-box;
-      font-size: 12px;
+    .app-header-text p {
+      margin: 1px 0 0;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
     }
 
-    textarea {
-      height: 72px;
-      margin-bottom: 8px;
-      resize: vertical;
-    }
-
-    select {
-      margin-bottom: 8px;
-      padding: 6px;
-    }
-
-    button {
-      padding: 8px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-
-    button:hover:not(:disabled) {
-      background-color: #0056b3;
-    }
-
-    button:disabled {
-      background-color: #9ca3af;
-      cursor: not-allowed;
-    }
-
+    /* Tabs */
     .tabs {
       display: flex;
       gap: 4px;
-      margin-bottom: 10px;
+      padding: 10px 16px 0;
+      background: var(--surface);
     }
 
     .tab-btn {
       flex: 1;
-      background: #e5e7eb;
-      color: #111827;
+      padding: 8px 12px;
+      border: none;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color var(--transition), background var(--transition);
+      position: relative;
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface-muted);
     }
 
     .tab-btn.active {
-      background: #007bff;
-      color: white;
+      color: var(--primary);
+      background: var(--bg);
     }
 
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 12px;
+      right: 12px;
+      height: 2px;
+      background: var(--accent-gradient);
+      border-radius: var(--radius-full);
+    }
+
+    .app-body {
+      padding: 12px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+
+    .card-section {
+      padding: 12px;
+    }
+
+    .card-section + .card-section {
+      border-top: 1px solid var(--border);
+    }
+
+    .section-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    /* Connection */
     .connection-box {
       display: flex;
       align-items: flex-start;
-      gap: 8px;
-      margin-bottom: 10px;
-      padding: 8px;
-      border-radius: 6px;
-      background: #f3f3f3;
-      font-size: 12px;
+      gap: 10px;
+      padding: 12px;
+      background: var(--accent-gradient-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+      margin-top: 4px;
+      box-shadow: 0 0 0 3px var(--surface);
+    }
+
+    .dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 0 3px var(--success-soft);
+    }
+
+    .dot.disconnected {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px var(--danger-soft);
+    }
+
+    .dot.checking {
+      background: var(--warning);
+      box-shadow: 0 0 0 3px var(--warning-soft);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.92); }
     }
 
     .connection-main {
@@ -109,51 +247,60 @@
     }
 
     #connectionText {
-      line-height: 1.35;
+      line-height: 1.4;
       word-break: break-word;
-      font-weight: bold;
+      font-weight: 600;
+      font-size: 12px;
       flex: 1;
       min-width: 0;
+      color: var(--text);
     }
 
     .link-btn {
-      padding: 0 4px;
+      padding: 2px 6px;
       background: none;
-      color: #007bff;
+      color: var(--primary);
+      font-family: inherit;
       font-size: 11px;
-      font-weight: normal;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
       white-space: nowrap;
+      transition: background var(--transition);
     }
 
     .link-btn:hover:not(:disabled) {
-      background: none;
-      text-decoration: underline;
+      background: var(--primary-soft);
+      text-decoration: none;
     }
 
     .linked-tabs-panel {
-      margin-top: 6px;
+      margin-top: 8px;
       max-height: 140px;
       overflow-y: auto;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 6px;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
     }
 
     .linked-tab-row {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 0;
+      padding: 6px 4px;
       font-size: 11px;
-      border-bottom: 1px solid #f0f0f0;
+      border-radius: var(--radius-sm);
+      transition: background var(--transition);
     }
 
-    .linked-tab-row:last-child {
-      border-bottom: none;
+    .linked-tab-row:hover {
+      background: var(--surface-muted);
     }
 
     .linked-tab-row.selected {
-      color: #1d4ed8;
-      font-weight: bold;
+      color: var(--primary);
+      font-weight: 600;
+      background: var(--primary-soft);
     }
 
     .linked-tab-row button.select-tab {
@@ -161,43 +308,46 @@
       text-align: left;
       background: none;
       color: inherit;
+      border: none;
       padding: 0;
+      font-family: inherit;
       font-size: 11px;
       font-weight: inherit;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .linked-tab-row button.select-tab:hover:not(:disabled) {
-      background: none;
-      text-decoration: underline;
+      cursor: pointer;
     }
 
     .linked-tab-row button.ignore-tab {
       background: none;
-      color: #9ca3af;
-      padding: 0 4px;
+      color: var(--text-muted);
+      border: none;
+      padding: 2px 6px;
       font-size: 14px;
       line-height: 1;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: color var(--transition), background var(--transition);
     }
 
     .linked-tab-row button.ignore-tab:hover:not(:disabled) {
-      background: none;
-      color: #b91c1c;
+      color: var(--danger);
+      background: var(--danger-soft);
     }
 
     .linked-tabs-heading {
       font-size: 10px;
-      font-weight: bold;
+      font-weight: 700;
       text-transform: uppercase;
-      color: #6b7280;
-      margin: 6px 0 4px;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin: 8px 0 4px;
     }
 
     .linked-tab-row.ignored {
-      color: #6b7280;
+      color: var(--text-muted);
     }
 
     .ignored-tab-label {
@@ -210,93 +360,344 @@
 
     .linked-tab-row button.restore-tab {
       background: none;
-      color: #1d4ed8;
-      padding: 0 4px;
+      color: var(--primary);
+      border: none;
+      padding: 2px 6px;
+      font-family: inherit;
       font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
     }
 
     .linked-tab-row button.restore-tab:hover:not(:disabled) {
-      background: none;
-      text-decoration: underline;
+      background: var(--primary-soft);
+    }
+
+    /* Status banners */
+    .queue-status {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.4;
+      background: var(--info-soft);
+      color: var(--info-text);
+      border: 1px solid transparent;
+    }
+
+    .queue-status.error {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    .queue-status.paused,
+    .queue-status.checkpoint {
+      background: var(--warning-soft);
+      color: #b45309;
+      border-color: rgba(245, 158, 11, 0.25);
     }
 
     .queue-status.checkpoint {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
     }
 
     .checkpoint-resume-btn {
-      padding: 4px 10px;
+      padding: 5px 12px;
       font-size: 11px;
+      font-weight: 600;
       background: #ea580c;
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
       flex-shrink: 0;
+      font-family: inherit;
+      transition: background var(--transition);
     }
 
     .checkpoint-resume-btn:hover:not(:disabled) {
       background: #c2410c;
     }
 
+    /* Form elements */
+    .field-group {
+      margin-bottom: 10px;
+    }
+
+    .field-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .field-row select {
+      flex: 1;
+    }
+
+    textarea,
+    select,
+    .modal-input {
+      width: 100%;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+    }
+
+    textarea {
+      padding: 10px 12px;
+      min-height: 80px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    select {
+      padding: 8px 10px;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+
+    textarea:focus,
+    select:focus,
+    .modal-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      background: var(--surface);
+    }
+
+    textarea:disabled,
+    select:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    /* Buttons */
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: var(--accent-gradient);
+      color: white;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: var(--shadow-md);
+      filter: brightness(1.05);
+    }
+
+    .btn-secondary {
+      background: var(--surface-muted);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      white-space: nowrap;
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: var(--surface-muted);
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+
+    .btn-danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: var(--danger);
+      color: white;
+    }
+
     #pauseBtn.checkpoint-action {
       background: #ea580c;
+      color: white;
+      border-color: transparent;
     }
 
     #pauseBtn.checkpoint-action:hover:not(:disabled) {
       background: #c2410c;
     }
 
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: gray;
-      flex-shrink: 0;
-      margin-top: 4px;
-    }
-
-    .dot.connected { background: #22c55e; }
-    .dot.disconnected { background: #ef4444; }
-    .dot.checking { background: #f59e0b; }
-
+    /* Options / toggles */
     .options-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px 12px;
-      margin-bottom: 8px;
-      font-size: 12px;
+      gap: 8px;
     }
 
-    .options-row label {
+    .toggle-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+      user-select: none;
+    }
+
+    .toggle-chip:has(input:checked) {
+      background: var(--primary-soft);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: var(--primary);
+    }
+
+    .toggle-chip input {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    /* Panels */
+    .sub-panel {
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-muted);
+    }
+
+    .sub-panel-header {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
     }
 
-    .queue-status {
-      margin: 8px 0;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      background: #eef2ff;
-      color: #3730a3;
+    .sub-panel-header .link-btn {
+      margin-left: auto;
+      text-transform: none;
+      letter-spacing: normal;
+      font-size: 11px;
     }
 
-    .queue-status.error {
-      background: #fef2f2;
-      color: #b91c1c;
-    }
-
-    .queue-status.paused,
-    .queue-status.checkpoint {
-      background: #fff7ed;
-      color: #c2410c;
-    }
-
+    /* Status toast */
     #status {
-      margin-top: 8px;
+      min-height: 0;
       font-size: 12px;
-      min-height: 16px;
+      font-weight: 500;
+      padding: 0;
+      border-radius: var(--radius-sm);
+      transition: padding var(--transition), background var(--transition);
+    }
+
+    #status:not(:empty) {
+      padding: 8px 10px;
+      margin-top: 4px;
+    }
+
+    #status.success {
+      color: var(--success);
+      background: var(--success-soft);
+    }
+
+    #status.error {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    /* Queue section */
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .queue-header h4 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .queue-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
     }
 
     .toolbar {
@@ -305,37 +706,10 @@
       margin-bottom: 10px;
     }
 
-    .toolbar button { flex: 1; }
-    .toolbar button.secondary { background-color: #6b7280; }
-    .toolbar button.secondary:hover:not(:disabled) { background-color: #4b5563; }
-    .toolbar button.danger { background-color: #dc2626; }
-    .toolbar button.danger:hover:not(:disabled) { background-color: #b91c1c; }
-
-    #queueBtn { width: 100%; margin-bottom: 4px; }
-
-    .persona-manage {
-      width: 100%;
-      margin-bottom: 8px;
-      background: #6b7280;
-    }
-
-    hr {
-      margin: 12px 0;
-      border: 0;
-      border-top: 1px solid #eee;
-    }
-
-    #queueContainer,
-    #historyContainer {
-      background: #f9f9f9;
-      padding: 10px;
-      border-radius: 4px;
-    }
-
-    #queueContainer h4,
-    #historyContainer h4 {
-      margin: 0 0 10px 0;
-      font-size: 14px;
+    .toolbar .btn {
+      flex: 1;
+      padding: 7px 8px;
+      font-size: 11px;
     }
 
     #queueList,
@@ -343,28 +717,38 @@
       margin: 0;
       padding: 0;
       list-style: none;
-      font-size: 13px;
-      color: #444;
+      max-height: 280px;
+      overflow-y: auto;
     }
 
     .queue-empty,
     .history-empty {
-      color: #6b7280;
-      font-style: italic;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 20px 12px;
+      font-style: normal;
     }
 
     .queue-item,
     .history-item {
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      padding: 8px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px;
       margin-bottom: 8px;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .queue-item:last-child,
+    .history-item:last-child {
+      margin-bottom: 0;
     }
 
     .queue-item.active {
-      border-color: #007bff;
-      box-shadow: 0 0 0 1px #007bff inset;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary), var(--shadow-sm);
+      background: var(--primary-soft);
     }
 
     .queue-item-header,
@@ -378,178 +762,109 @@
     .queue-badge,
     .history-meta {
       font-size: 10px;
-      font-weight: bold;
+      font-weight: 700;
       text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 999px;
-      background: #dbeafe;
-      color: #1d4ed8;
+      letter-spacing: 0.03em;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      background: var(--primary-soft);
+      color: var(--primary);
       flex-shrink: 0;
     }
 
     .queue-badge.next,
     .history-meta {
-      background: #e5e7eb;
-      color: #374151;
-    }
-
-    .queue-badge.checkpoint {
-      background: #ffedd5;
-      color: #c2410c;
+      background: var(--surface);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
     }
 
     .queue-preview,
     .history-preview {
       word-break: break-word;
-      line-height: 1.35;
+      line-height: 1.4;
+      font-size: 12px;
+      color: var(--text);
     }
 
     .queue-meta {
       font-size: 11px;
-      color: #6b7280;
+      color: var(--text-muted);
       margin-bottom: 6px;
     }
 
     .checkpoint-row {
-      margin-bottom: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
       font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .checkpoint-row input {
+      accent-color: var(--warning);
+      margin: 0;
     }
 
     .queue-actions,
     .history-actions {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      display: flex;
+      flex-wrap: wrap;
       gap: 4px;
     }
 
     .queue-actions button,
     .history-actions button {
-      min-width: 0;
-      padding: 4px 4px;
-      font-size: 11px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 600;
       line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      background-color: #f3f4f6;
-      color: #111827;
-      border: 1px solid #d1d5db;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      min-width: 0;
     }
 
     .queue-actions button:hover:not(:disabled),
     .history-actions button:hover:not(:disabled) {
-      background-color: #e5e7eb;
+      background: var(--border);
+      color: var(--text);
     }
 
     .queue-actions button.danger,
-    .history-actions button.danger { color: #b91c1c; }
+    .history-actions button.danger {
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.25);
+      background: var(--danger-soft);
+    }
+
+    .queue-actions button.danger:hover:not(:disabled) {
+      background: var(--danger);
+      color: white;
+    }
 
     .queue-actions button.primary,
     .history-actions button.primary {
-      color: #1d4ed8;
-      border-color: #93c5fd;
-      background: #eff6ff;
+      color: var(--primary);
+      border-color: rgba(59, 130, 246, 0.3);
+      background: var(--primary-soft);
     }
 
-    .hidden { display: none; }
-
-    #broadcastPanel {
-      margin-bottom: 8px;
-      padding: 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      background: #fafafa;
+    .queue-actions button.primary:hover:not(:disabled) {
+      background: var(--primary);
+      color: white;
     }
 
-    .broadcast-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-      font-size: 12px;
-      font-weight: bold;
-      color: #374151;
-    }
-
-    .broadcast-header .link-btn {
-      padding: 0 4px;
-      background: none;
-      color: #007bff;
-      font-size: 11px;
-      font-weight: normal;
-    }
-
-    .broadcast-header .link-btn:hover:not(:disabled) {
-      background: none;
-      text-decoration: underline;
-    }
-
-    #broadcastTabList {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      max-height: 120px;
-      overflow-y: auto;
-    }
-
-    .broadcast-tab-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      padding: 4px 0;
-      font-size: 11px;
-      line-height: 1.3;
-      border-bottom: 1px solid #f0f0f0;
-    }
-
-    .broadcast-tab-item:last-child {
-      border-bottom: none;
-    }
-
-    .broadcast-tab-item label {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      cursor: pointer;
-      flex: 1;
-    }
-
-    .broadcast-tab-item input {
-      margin-top: 2px;
-      flex-shrink: 0;
-    }
-
-    #personaPanel {
-      margin-bottom: 8px;
-      padding: 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      background: #fafafa;
-    }
-
-    .persona-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-      font-size: 12px;
-      font-weight: bold;
-      color: #374151;
-    }
-
-    .persona-header .link-btn {
-      padding: 0 4px;
-      background: none;
-      color: #007bff;
-      font-size: 11px;
-      font-weight: normal;
-    }
-
-    .persona-header .link-btn:hover:not(:disabled) {
-      background: none;
-      text-decoration: underline;
-    }
-
+    /* Broadcast & persona lists */
+    #broadcastTabList,
     #personaList {
       margin: 0;
       padding: 0;
@@ -558,18 +873,64 @@
       overflow-y: auto;
     }
 
+    .broadcast-tab-item,
+    .persona-item {
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition);
+    }
+
+    .broadcast-tab-item:last-child,
+    .persona-item:last-child {
+      border-bottom: none;
+    }
+
+    .broadcast-tab-item:hover,
+    .persona-item:hover {
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+    }
+
+    .broadcast-tab-item label {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .broadcast-tab-item input {
+      margin-top: 3px;
+      accent-color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .broadcast-tab-title {
+      word-break: break-word;
+      color: var(--text);
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .broadcast-tab-meta {
+      color: var(--text-muted);
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    .broadcast-empty,
+    .persona-empty {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 12px 8px;
+      font-style: normal;
+    }
+
     .persona-item {
       display: flex;
       align-items: flex-start;
-      gap: 6px;
-      padding: 6px 0;
-      font-size: 11px;
-      line-height: 1.3;
-      border-bottom: 1px solid #f0f0f0;
-    }
-
-    .persona-item:last-child {
-      border-bottom: none;
+      gap: 8px;
     }
 
     .persona-item-body {
@@ -578,151 +939,318 @@
     }
 
     .persona-item-name {
-      font-weight: bold;
-      color: #111827;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text);
       margin-bottom: 2px;
     }
 
     .persona-item-preview {
-      color: #6b7280;
+      color: var(--text-muted);
+      font-size: 11px;
       word-break: break-word;
     }
 
     .persona-item-actions {
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      gap: 4px;
       flex-shrink: 0;
     }
 
     .persona-item-actions button {
       background: none;
-      color: #007bff;
-      padding: 0 4px;
+      color: var(--primary);
+      border: none;
+      padding: 2px 6px;
       font-size: 11px;
-      min-width: 44px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
     }
 
     .persona-item-actions button:hover:not(:disabled) {
-      background: none;
-      text-decoration: underline;
+      background: var(--primary-soft);
     }
 
     .persona-item-actions button.danger {
-      color: #b91c1c;
+      color: var(--danger);
     }
 
-    .persona-empty {
-      color: #6b7280;
-      font-style: italic;
+    .persona-item-actions button.danger:hover:not(:disabled) {
+      background: var(--danger-soft);
+    }
+
+    .hidden { display: none !important; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: var(--radius-full);
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+      animation: fadeIn 150ms ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 360px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      animation: slideUp 200ms ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-header {
+      padding: 14px 16px 0;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .modal-header p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .modal-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-input {
+      padding: 9px 11px;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 8px;
+      padding: 0 16px 14px;
+    }
+
+    .modal-footer .btn {
+      flex: 1;
+    }
+
+    .modal-hint {
       font-size: 11px;
-    }
-
-    .broadcast-tab-title {
-      word-break: break-word;
-      color: #111827;
-    }
-
-    .broadcast-tab-meta {
-      color: #6b7280;
-      font-size: 10px;
-    }
-
-    .broadcast-empty {
-      font-size: 11px;
-      color: #6b7280;
-      font-style: italic;
+      color: var(--text-muted);
+      margin: 0;
     }
   </style>
 </head>
 
 <body>
-  <div class="app-header">
-    <img src="assets/logo.png" alt="Prompt Flood logo" width="28" height="28">
-    <h3>Prompt Flood</h3>
-  </div>
-
-  <div class="tabs">
-    <button type="button" class="tab-btn active" data-tab="queue">Queue</button>
-    <button type="button" class="tab-btn" data-tab="history">History</button>
-  </div>
-
-  <div class="connection-box">
-    <span id="connectionDot" class="dot checking"></span>
-    <div class="connection-main">
-      <div class="connection-summary">
-        <span id="connectionText">Checking connection...</span>
-        <button type="button" id="reconnectBtn" class="link-btn hidden">Reconnect</button>
-        <button type="button" id="tabsToggle" class="link-btn hidden">+0 tabs v</button>
+  <div class="app">
+    <header class="app-header">
+      <img src="assets/logo.png" alt="Prompt Flood logo" width="32" height="32">
+      <div class="app-header-text">
+        <h1>Prompt Flood</h1>
+        <p>Queue prompts across AI chats</p>
       </div>
-      <div id="linkedTabsPanel" class="linked-tabs-panel hidden"></div>
-    </div>
-  </div>
+    </header>
 
-  <div id="queuePanel">
-    <div id="queueStatus" class="queue-status hidden"></div>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab-btn active" data-tab="queue" role="tab" aria-selected="true">Queue</button>
+      <button type="button" class="tab-btn" data-tab="history" role="tab" aria-selected="false">History</button>
+    </nav>
 
-    <label for="personaSelect">Persona</label>
-    <select id="personaSelect">
-      <option value="">None</option>
-    </select>
-    <button type="button" id="managePersonaBtn" class="persona-manage">Manage personas</button>
-
-    <div id="personaPanel" class="hidden">
-      <div class="persona-header">
-        <span>Saved personas</span>
-        <button type="button" id="addPersonaBtn" class="link-btn">Add new</button>
-      </div>
-      <ul id="personaList">
-        <li class="persona-empty">No personas yet</li>
-      </ul>
-    </div>
-
-    <textarea id="promptText" placeholder="Enter your next prompt here..."></textarea>
-
-    <div class="options-row">
-      <label><input type="checkbox" id="pauseHereAdd"> Hold before sending</label>
-      <label><input type="checkbox" id="broadcastToggle"> Broadcast</label>
-    </div>
-
-    <div id="broadcastPanel" class="hidden">
-      <div class="broadcast-header">
-        <span>Send to tabs</span>
-        <button type="button" id="broadcastSelectAll" class="link-btn">All</button>
-        <button type="button" id="broadcastSelectNone" class="link-btn">None</button>
-      </div>
-      <ul id="broadcastTabList">
-        <li class="broadcast-empty">No supported tabs open</li>
-      </ul>
-    </div>
-
-    <button type="button" id="queueBtn">Add to Queue</button>
-    <div id="status"></div>
-
-    <hr>
-
-    <div id="queueContainer">
-      <h4>Queue</h4>
-
-      <div class="toolbar">
-        <button type="button" id="pauseBtn" class="secondary" disabled>Pause</button>
-        <button type="button" id="retryBtn" class="secondary" disabled>Retry</button>
-        <button type="button" id="clearBtn" class="danger" disabled>Clear</button>
+    <div class="app-body">
+      <div class="connection-box">
+        <span id="connectionDot" class="dot checking" aria-hidden="true"></span>
+        <div class="connection-main">
+          <div class="connection-summary">
+            <span id="connectionText">Checking connection...</span>
+            <button type="button" id="reconnectBtn" class="link-btn hidden">Reconnect</button>
+            <button type="button" id="tabsToggle" class="link-btn hidden">+0 tabs v</button>
+          </div>
+          <div id="linkedTabsPanel" class="linked-tabs-panel hidden"></div>
+        </div>
       </div>
 
-      <ul id="queueList">
-        <li class="queue-empty">Queue is empty</li>
-      </ul>
+      <div id="queuePanel">
+        <div id="queueStatus" class="queue-status hidden" role="status"></div>
+
+        <div class="card">
+          <div class="card-section">
+            <div class="field-group">
+              <span class="field-label">Persona</span>
+              <div class="field-row">
+                <select id="personaSelect" aria-label="Select persona">
+                  <option value="">None</option>
+                </select>
+                <button type="button" id="managePersonaBtn" class="btn btn-ghost">Manage</button>
+              </div>
+            </div>
+
+            <div id="personaPanel" class="sub-panel hidden">
+              <div class="sub-panel-header">
+                <span>Saved personas</span>
+                <button type="button" id="addPersonaBtn" class="link-btn">+ Add new</button>
+              </div>
+              <ul id="personaList">
+                <li class="persona-empty">No personas yet</li>
+              </ul>
+            </div>
+
+            <div class="field-group">
+              <span class="field-label">Prompt</span>
+              <textarea id="promptText" placeholder="Write your next prompt here..." aria-label="Prompt text"></textarea>
+            </div>
+
+            <div class="options-row">
+              <label class="toggle-chip">
+                <input type="checkbox" id="pauseHereAdd">
+                Hold before sending
+              </label>
+              <label class="toggle-chip">
+                <input type="checkbox" id="broadcastToggle">
+                Broadcast
+              </label>
+            </div>
+
+            <div id="broadcastPanel" class="sub-panel hidden">
+              <div class="sub-panel-header">
+                <span>Send to tabs</span>
+                <button type="button" id="broadcastSelectAll" class="link-btn">All</button>
+                <button type="button" id="broadcastSelectNone" class="link-btn">None</button>
+              </div>
+              <ul id="broadcastTabList">
+                <li class="broadcast-empty">No supported tabs open</li>
+              </ul>
+            </div>
+
+            <button type="button" id="queueBtn" class="btn btn-primary">Add to Queue</button>
+            <div id="status" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-section">
+            <div class="queue-header">
+              <h4>Active queue</h4>
+            </div>
+
+            <div class="toolbar">
+              <button type="button" id="pauseBtn" class="btn btn-secondary" disabled>Pause</button>
+              <button type="button" id="retryBtn" class="btn btn-secondary" disabled>Retry</button>
+              <button type="button" id="clearBtn" class="btn btn-danger" disabled>Clear</button>
+            </div>
+
+            <ul id="queueList">
+              <li class="queue-empty">Queue is empty</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="historyPanel" class="hidden">
+        <div class="card">
+          <div class="card-section">
+            <div class="queue-header">
+              <h4>Prompt history</h4>
+            </div>
+            <ul id="historyList">
+              <li class="history-empty">No prompts sent yet</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div id="historyPanel" class="hidden">
-    <div id="historyContainer">
-      <h4>Prompt history</h4>
-      <ul id="historyList">
-        <li class="history-empty">No prompts sent yet</li>
-      </ul>
+  <!-- Persona modal -->
+  <div id="personaModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="personaModalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="personaModalTitle">New persona</h2>
+        <p>Prefix and suffix text wrap around every prompt.</p>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label" for="personaNameInput">Name</label>
+          <input type="text" id="personaNameInput" class="modal-input" placeholder="e.g. Code reviewer">
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="personaPrefixInput">Before prompt</label>
+          <textarea id="personaPrefixInput" class="modal-input" rows="2" placeholder="Optional text added before (blank line added automatically)"></textarea>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="personaSuffixInput">After prompt</label>
+          <textarea id="personaSuffixInput" class="modal-input" rows="2" placeholder="Optional text added after (blank line added automatically)"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="personaModalCancel" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="personaModalSave" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
 
+  <!-- Confirm modal -->
+  <div id="confirmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="confirmModalTitle">Confirm</h2>
+        <p id="confirmModalMessage"></p>
+      </div>
+      <div class="modal-footer" style="padding-top: 14px;">
+        <button type="button" id="confirmModalCancel" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="confirmModalOk" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit prompt modal -->
+  <div id="editPromptModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="editPromptModalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="editPromptModalTitle">Edit prompt</h2>
+      </div>
+      <div class="modal-body">
+        <textarea id="editPromptInput" class="modal-input" rows="5" aria-label="Edit prompt text"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="editPromptCancel" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="editPromptSave" class="btn btn-primary">Save</button>
+      </div>
     </div>
   </div>
 

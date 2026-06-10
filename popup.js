@@ -38,6 +38,23 @@ const queuePanel = document.getElementById("queuePanel");
 const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
 const tabButtons = document.querySelectorAll(".tab-btn");
+const personaModal = document.getElementById("personaModal");
+const personaModalTitle = document.getElementById("personaModalTitle");
+const personaNameInput = document.getElementById("personaNameInput");
+const personaPrefixInput = document.getElementById("personaPrefixInput");
+const personaSuffixInput = document.getElementById("personaSuffixInput");
+const personaModalCancel = document.getElementById("personaModalCancel");
+const personaModalSave = document.getElementById("personaModalSave");
+const confirmModal = document.getElementById("confirmModal");
+const confirmModalTitle = document.getElementById("confirmModalTitle");
+const confirmModalMessage = document.getElementById("confirmModalMessage");
+const confirmModalCancel = document.getElementById("confirmModalCancel");
+const confirmModalOk = document.getElementById("confirmModalOk");
+const editPromptModal = document.getElementById("editPromptModal");
+const editPromptModalTitle = document.getElementById("editPromptModalTitle");
+const editPromptInput = document.getElementById("editPromptInput");
+const editPromptCancel = document.getElementById("editPromptCancel");
+const editPromptSave = document.getElementById("editPromptSave");
 
 let activeTabId = null;
 let managedTabId = null;
@@ -51,9 +68,119 @@ let ignoredTabsCache = [];
 let lastQueueStateSignature = "";
 let lastLinkedTabsSignature = "";
 
-function setStatus(message, color = "") {
+function setStatus(message, tone = "") {
   statusDiv.innerText = message;
-  statusDiv.style.color = color;
+  statusDiv.classList.remove("success", "error");
+  if (tone === "green" || tone === "success") {
+    statusDiv.classList.add("success");
+  } else if (tone === "red" || tone === "error") {
+    statusDiv.classList.add("error");
+  }
+}
+
+function openModal(modal) {
+  modal.classList.remove("hidden");
+}
+
+function closeModal(modal) {
+  modal.classList.add("hidden");
+}
+
+function showConfirmDialog({ title, message, confirmLabel = "Confirm" }) {
+  return new Promise((resolve) => {
+    confirmModalTitle.innerText = title;
+    confirmModalMessage.innerText = message;
+    confirmModalOk.innerText = confirmLabel;
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onConfirm = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const cleanup = () => {
+      confirmModalCancel.removeEventListener("click", onCancel);
+      confirmModalOk.removeEventListener("click", onConfirm);
+      closeModal(confirmModal);
+    };
+
+    confirmModalCancel.addEventListener("click", onCancel);
+    confirmModalOk.addEventListener("click", onConfirm);
+    openModal(confirmModal);
+  });
+}
+
+function showPersonaDialog(persona = null) {
+  return new Promise((resolve) => {
+    personaModalTitle.innerText = persona ? "Edit persona" : "New persona";
+    personaNameInput.value = persona?.name || "";
+    personaPrefixInput.value = persona?.prefix || "";
+    personaSuffixInput.value = persona?.suffix || "";
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSave = () => {
+      const name = personaNameInput.value.trim();
+      if (!name) {
+        personaNameInput.focus();
+        return;
+      }
+
+      cleanup();
+      resolve({
+        id: persona?.id,
+        name,
+        prefix: personaPrefixInput.value,
+        suffix: personaSuffixInput.value
+      });
+    };
+
+    const cleanup = () => {
+      personaModalCancel.removeEventListener("click", onCancel);
+      personaModalSave.removeEventListener("click", onSave);
+      closeModal(personaModal);
+    };
+
+    personaModalCancel.addEventListener("click", onCancel);
+    personaModalSave.addEventListener("click", onSave);
+    openModal(personaModal);
+    personaNameInput.focus();
+  });
+}
+
+function showEditPromptDialog(index, currentPrompt) {
+  return new Promise((resolve) => {
+    editPromptModalTitle.innerText = `Edit prompt #${index + 1}`;
+    editPromptInput.value = currentPrompt;
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSave = () => {
+      cleanup();
+      resolve(editPromptInput.value);
+    };
+
+    const cleanup = () => {
+      editPromptCancel.removeEventListener("click", onCancel);
+      editPromptSave.removeEventListener("click", onSave);
+      closeModal(editPromptModal);
+    };
+
+    editPromptCancel.addEventListener("click", onCancel);
+    editPromptSave.addEventListener("click", onSave);
+    openModal(editPromptModal);
+    editPromptInput.focus();
+  });
 }
 
 function getSiteFromUrl(url) {
@@ -358,8 +485,8 @@ function renderConnectionBar(linked, ignoredEntries = ignoredTabsCache) {
   if (extraCount > 0) {
     tabsToggle.classList.remove("hidden");
     tabsToggle.innerText = linkedTabsExpanded
-      ? `${extraCount} more ^`
-      : `+${extraCount} tab${extraCount === 1 ? "" : "s"} v`;
+      ? `${extraCount} more ▴`
+      : `+${extraCount} tab${extraCount === 1 ? "" : "s"} ▾`;
   } else {
     tabsToggle.classList.add("hidden");
     linkedTabsPanel.classList.add("hidden");
@@ -743,26 +870,7 @@ function setPersonaPanelVisible(visible) {
 }
 
 async function promptForPersonaDetails(persona = null) {
-  const name = prompt("Persona name:", persona?.name || "");
-  if (!name) return null;
-
-  const prefix =
-    prompt(
-      "Text to add BEFORE the prompt (optional).\nA blank line is added automatically:",
-      persona?.prefix || ""
-    ) ?? "";
-  const suffix =
-    prompt(
-      "Text to add AFTER the prompt (optional).\nA blank line is added automatically:",
-      persona?.suffix || ""
-    ) ?? "";
-
-  return {
-    id: persona?.id,
-    name,
-    prefix,
-    suffix
-  };
+  return showPersonaDialog(persona);
 }
 
 async function savePersona(persona) {
@@ -802,7 +910,11 @@ async function editPersona(persona) {
 }
 
 async function deletePersona(persona) {
-  const confirmed = confirm(`Delete persona "${persona.name}"?`);
+  const confirmed = await showConfirmDialog({
+    title: "Delete persona",
+    message: `Delete "${persona.name}"? This cannot be undone.`,
+    confirmLabel: "Delete"
+  });
   if (!confirmed) return;
 
   const response = await runtimeMessage({
@@ -1125,13 +1237,17 @@ async function sendQueueAction(action, payload = {}) {
 }
 
 async function removeQueueItem(index, text) {
-  const confirmed = confirm(`Remove "${truncate(text, 40)}" from the queue?`);
+  const confirmed = await showConfirmDialog({
+    title: "Remove from queue",
+    message: `Remove "${truncate(text, 40)}" from the queue?`,
+    confirmLabel: "Remove"
+  });
   if (!confirmed) return;
   await sendQueueAction("remove_from_queue", { index });
 }
 
 async function editQueueItem(index, currentPrompt) {
-  const updated = prompt(`Edit prompt #${index + 1}:`, currentPrompt);
+  const updated = await showEditPromptDialog(index, currentPrompt);
   if (updated === null) return;
   await sendQueueAction("edit_queue_item", { index, prompt: updated });
 }
@@ -1226,7 +1342,9 @@ async function requeueHistoryEntry(entry) {
 
 function switchTab(tabName) {
   tabButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.tab === tabName);
+    const isActive = button.dataset.tab === tabName;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
   });
 
   queuePanel.classList.toggle("hidden", tabName !== "queue");
@@ -1291,7 +1409,12 @@ retryBtn.addEventListener("click", async () => {
 
 clearBtn.addEventListener("click", async () => {
   if (!latestState?.queueLength) return;
-  if (!confirm("Clear the entire queue?")) return;
+  const confirmed = await showConfirmDialog({
+    title: "Clear queue",
+    message: "Remove all prompts from the queue? This cannot be undone.",
+    confirmLabel: "Clear all"
+  });
+  if (!confirmed) return;
   await sendQueueAction("clear_queue");
 });
 
