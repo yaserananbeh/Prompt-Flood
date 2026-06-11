@@ -82,11 +82,12 @@ const statusDiv = document.getElementById("status");
 const connectionDot = document.getElementById("connectionDot");
 const connectionText = document.getElementById("connectionText");
 const connectionTargetIcon = document.getElementById("connectionTargetIcon");
-const connectionTabPicker = document.getElementById("connectionTabPicker");
 const connectionTargetHint = document.getElementById("connectionTargetHint");
+const connectionTabPicker = document.getElementById("connectionTabPicker");
+const connectionChipLabel = document.getElementById("connectionChipLabel");
 const connectionBox = document.getElementById("connectionBox");
-const broadcastModeBanner = document.getElementById("broadcastModeBanner");
-const goToManagedTabBtn = document.getElementById("goToManagedTabBtn");
+const goToSendTargetBtn = document.getElementById("goToSendTargetBtn");
+const goToQueueViewBtn = document.getElementById("goToQueueViewBtn");
 const tabsToggle = document.getElementById("tabsToggle");
 const reconnectBtn = document.getElementById("reconnectBtn");
 const linkedTabsPanel = document.getElementById("linkedTabsPanel");
@@ -95,17 +96,14 @@ const queueStatus = document.getElementById("queueStatus");
 const pauseBtn = document.getElementById("pauseBtn");
 const retryBtn = document.getElementById("retryBtn");
 const clearBtn = document.getElementById("clearBtn");
+const queueViewRow = document.getElementById("queueViewRow");
+const queueViewPicker = document.getElementById("queueViewPicker");
 const personaSelect = document.getElementById("personaSelect");
 const personaFieldGroup = document.getElementById("personaFieldGroup");
 const usePersonaToggle = document.getElementById("usePersonaToggle");
 const personaList = document.getElementById("personaList");
 const addPersonaBtn = document.getElementById("addPersonaBtn");
 const pauseHereAdd = document.getElementById("pauseHereAdd");
-const broadcastToggle = document.getElementById("broadcastToggle");
-const broadcastPanel = document.getElementById("broadcastPanel");
-const broadcastTabList = document.getElementById("broadcastTabList");
-const broadcastSelectAll = document.getElementById("broadcastSelectAll");
-const broadcastSelectNone = document.getElementById("broadcastSelectNone");
 const queueChrome = document.getElementById("queueChrome");
 const queuePanel = document.getElementById("queuePanel");
 const settingsPanel = document.getElementById("settingsPanel");
@@ -153,6 +151,8 @@ let pollTimer = null;
 let linkedTabsCache = [];
 let linkedTabsExpanded = false;
 let ignoredTabsCache = [];
+let sendTargetTabIds = new Set();
+let lastSendTargetTabId = null;
 let lastQueueStateSignature = "";
 let lastLinkedTabsSignature = "";
 let settings = { ...DEFAULT_SETTINGS };
@@ -316,9 +316,43 @@ function createGoToTabButton(tabId, { title = "Go to tab", compact = false } = {
   return button;
 }
 
-function updateManagedTabGoButton() {
-  const show = Boolean(isConnected && managedTabId);
-  goToManagedTabBtn.classList.toggle("hidden", !show);
+function getSendTargetGoTabId() {
+  const targets = getEffectiveTargetTabIds();
+  if (targets.length === 1) return targets[0];
+  if (lastSendTargetTabId && targets.includes(lastSendTargetTabId)) {
+    return lastSendTargetTabId;
+  }
+  return targets[0] ?? managedTabId ?? null;
+}
+
+function markSendTargetInteraction(tabId) {
+  if (Number.isInteger(tabId) && tabId > 0) {
+    lastSendTargetTabId = tabId;
+  }
+}
+
+function getTabSiteLabel(tabId) {
+  const entry = linkedTabsCache.find((item) => item.tabId === tabId);
+  return formatConnectionLabel(entry?.state?.site || getSiteFromUrl(entry?.url));
+}
+
+function updateGoToTabButtons() {
+  const sendTabId = getSendTargetGoTabId();
+  const showSend = Boolean(isConnected && sendTabId);
+  goToSendTargetBtn?.classList.toggle("hidden", !showSend);
+  if (showSend && sendTabId) {
+    const title = `Go to ${getTabSiteLabel(sendTabId)} tab (send target)`;
+    goToSendTargetBtn.title = title;
+    goToSendTargetBtn.setAttribute("aria-label", title);
+  }
+
+  const showQueue = Boolean(isConnected && managedTabId && linkedTabsCache.length > 1);
+  goToQueueViewBtn?.classList.toggle("hidden", !showQueue);
+  if (showQueue && managedTabId) {
+    const title = `Go to ${getTabSiteLabel(managedTabId)} tab (queue view)`;
+    goToQueueViewBtn.title = title;
+    goToQueueViewBtn.setAttribute("aria-label", title);
+  }
 }
 
 function updateLlmLauncher(supportedTabCount = lastSupportedTabCount) {
@@ -468,8 +502,6 @@ function resetComposeFormAfterAdd() {
   pauseHereAdd.checked = settings.defaultHoldBeforeSending;
   usePersonaToggle.checked = false;
   updatePersonaFieldVisibility();
-  broadcastToggle.checked = false;
-  setBroadcastPanelVisible(false);
 }
 
 function applyQueueDefaultsFromSettings() {
@@ -809,82 +841,211 @@ function getChatIdFromUrl(url) {
   return null;
 }
 
-function getSelectedBroadcastTabIds() {
-  return Array.from(
-    broadcastTabList.querySelectorAll("input[data-broadcast-tab]:checked")
-  )
-    .map((input) => Number(input.dataset.broadcastTab))
-    .filter((tabId) => Number.isInteger(tabId) && tabId > 0);
+function normalizeSendTargetTabIds() {
+  const validIds = new Set(linkedTabsCache.map((entry) => entry.tabId));
+  sendTargetTabIds = new Set([...sendTargetTabIds].filter((tabId) => validIds.has(tabId)));
+
+  if (sendTargetTabIds.size === 0 && managedTabId && validIds.has(managedTabId)) {
+    sendTargetTabIds.add(managedTabId);
+  }
+
+  if (!lastSendTargetTabId || !validIds.has(lastSendTargetTabId)) {
+    lastSendTargetTabId = managedTabId || [...sendTargetTabIds][0] || null;
+  }
 }
 
-async function loadBroadcastTabs() {
-  const previouslySelected = new Set(getSelectedBroadcastTabIds());
-  const ignored = await getIgnoredTabIds();
-  const tabs = await chrome.tabs.query({});
-  const supported = tabs.filter(
-    (tab) => isSupportedChatUrl(tab.url) && tab.id && !ignored.has(tab.id)
-  );
-  const activeTab = await getActiveTab();
+function getSelectedTargetTabIds() {
+  normalizeSendTargetTabIds();
+  return [...sendTargetTabIds];
+}
 
-  broadcastTabList.innerHTML = "";
+function getEffectiveTargetTabIds() {
+  if (linkedTabsCache.length === 1 && managedTabId) {
+    return [managedTabId];
+  }
+  return getSelectedTargetTabIds();
+}
 
-  if (supported.length === 0) {
-    const empty = document.createElement("li");
-    empty.className = "broadcast-empty";
-    empty.innerText = "No supported tabs open";
-    broadcastTabList.appendChild(empty);
+function toggleSendTarget(tabId) {
+  normalizeSendTargetTabIds();
+
+  if (sendTargetTabIds.has(tabId)) {
+    if (sendTargetTabIds.size <= 1) return;
+    sendTargetTabIds.delete(tabId);
+  } else {
+    sendTargetTabIds.add(tabId);
+  }
+
+  markSendTargetInteraction(tabId);
+  updateConnectionSummary();
+  updateControls();
+  renderConnectionTabPicker(linkedTabsCache);
+}
+
+function updateConnectionSummary() {
+  const selectedIds = getEffectiveTargetTabIds();
+  const managed = linkedTabsCache.find((entry) => entry.tabId === managedTabId);
+
+  connectionBox?.classList.toggle("multi-target-mode", selectedIds.length > 1);
+
+  if (selectedIds.length === 0) {
+    connectionText.innerText = "No chats selected";
+    connectionText.title = "Check at least one chat below.";
+    connectionTargetIcon.classList.add("hidden");
     return;
   }
 
-  supported.forEach((tab) => {
-    const li = document.createElement("li");
-    li.className = "broadcast-tab-item";
+  if (selectedIds.length === 1) {
+    const entry =
+      linkedTabsCache.find((item) => item.tabId === selectedIds[0]) || managed;
+    const site = entry?.state?.site || getSiteFromUrl(entry?.url);
+    const chatId = entry?.state?.chatId ?? getChatIdFromUrl(entry?.url);
+    connectionText.innerText = formatConnectionLabel(site);
+    connectionText.title = chatId
+      ? `Chat ID: ${chatId}. Prompts you add go to this tab.`
+      : "Prompts you add from this panel go to this chat tab.";
+    updateConnectionTargetIcon(entry?.url);
+    updateGoToTabButtons();
+    return;
+  }
 
-    const label = document.createElement("label");
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.dataset.broadcastTab = String(tab.id);
-    checkbox.checked =
-      previouslySelected.size > 0 ? previouslySelected.has(tab.id) : true;
+  connectionText.innerText = `${selectedIds.length} chats selected`;
+  connectionText.title = "Prompts will be sent to all highlighted chips.";
+  connectionTargetIcon.classList.add("hidden");
+  updateGoToTabButtons();
+}
 
-    const textWrap = document.createElement("span");
-    const site = getSiteFromUrl(tab.url);
-    const chatId = getChatIdFromUrl(tab.url);
-    const isActive = tab.id === activeTab?.id;
+function renderQueueViewPicker(linked) {
+  if (!queueViewPicker || !queueViewRow) return;
 
-    const title = document.createElement("span");
-    title.className = "broadcast-tab-title";
-    title.innerText = truncate(tab.title || "Untitled tab", 50);
+  if (linked.length <= 1) {
+    queueViewRow.classList.add("hidden");
+    return;
+  }
 
-    const meta = document.createElement("span");
-    meta.className = "broadcast-tab-meta";
-    const metaParts = [site];
-    if (chatId) metaParts.push(truncate(chatId, 24));
-    if (isActive) metaParts.push("active");
-    meta.innerText = metaParts.join(" | ");
+  queueViewRow.classList.remove("hidden");
+  queueViewPicker.innerHTML = "";
 
-    textWrap.appendChild(title);
-    textWrap.appendChild(document.createElement("br"));
-    textWrap.appendChild(meta);
-
-    label.appendChild(checkbox);
-    label.appendChild(textWrap);
-    li.appendChild(label);
-    li.appendChild(
-      createGoToTabButton(tab.id, {
-        compact: true,
-        title: `Go to ${truncate(tab.title || "tab", 40)}`
-      })
+  linked.forEach((entry) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "queue-view-chip";
+    chip.setAttribute("role", "tab");
+    chip.setAttribute(
+      "aria-selected",
+      entry.tabId === managedTabId ? "true" : "false"
     );
-    broadcastTabList.appendChild(li);
+
+    if (entry.tabId === managedTabId) {
+      chip.classList.add("active");
+    }
+
+    const llm = getLlmForUrl(entry.url);
+    if (llm) {
+      const icon = document.createElement("img");
+      icon.src = getLlmFaviconUrl(llm.host);
+      icon.alt = "";
+      icon.setAttribute("aria-hidden", "true");
+      chip.appendChild(icon);
+    }
+
+    const label = document.createElement("span");
+    label.innerText = entry.state?.site || getSiteFromUrl(entry.url);
+    chip.appendChild(label);
+
+    if (entry.tabId === managedTabId) {
+      const dot = document.createElement("span");
+      dot.className = "queue-view-chip-dot";
+      dot.setAttribute("aria-hidden", "true");
+      chip.appendChild(dot);
+    }
+
+    chip.title = truncate(entry.title || "Untitled", 60);
+    chip.addEventListener("click", () => selectManagedTab(entry.tabId));
+    queueViewPicker.appendChild(chip);
+  });
+
+  updateGoToTabButtons();
+}
+
+function renderConnectionTabPicker(linked) {
+  connectionTabPicker.innerHTML = "";
+
+  if (linked.length <= 1) {
+    connectionTabPicker.classList.add("hidden");
+    connectionTargetHint.classList.add("hidden");
+    connectionChipLabel?.classList.add("hidden");
+    return;
+  }
+
+  connectionTabPicker.classList.remove("hidden");
+  connectionTargetHint.classList.remove("hidden");
+  connectionChipLabel?.classList.remove("hidden");
+  normalizeSendTargetTabIds();
+
+  linked.forEach((entry) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "connection-tab-chip";
+    chip.setAttribute("role", "checkbox");
+    chip.setAttribute(
+      "aria-checked",
+      sendTargetTabIds.has(entry.tabId) ? "true" : "false"
+    );
+
+    if (sendTargetTabIds.has(entry.tabId)) chip.classList.add("target");
+
+    const llm = getLlmForUrl(entry.url);
+    if (llm) {
+      const icon = document.createElement("img");
+      icon.src = getLlmFaviconUrl(llm.host);
+      icon.alt = "";
+      icon.setAttribute("aria-hidden", "true");
+      chip.appendChild(icon);
+    }
+
+    const label = document.createElement("span");
+    label.innerText = entry.state?.site || getSiteFromUrl(entry.url);
+    chip.appendChild(label);
+
+    if (sendTargetTabIds.has(entry.tabId)) {
+      const check = document.createElement("span");
+      check.className = "connection-tab-chip-check";
+      check.setAttribute("aria-hidden", "true");
+      check.innerText = "✓";
+      chip.appendChild(check);
+    }
+
+    chip.title = `${truncate(entry.title || "Untitled", 40)} — Click to send here. Ctrl+click to add more. Right-click to hide.`;
+
+    chip.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      ignoreTab(entry.tabId);
+    });
+
+    chip.addEventListener("click", (event) => {
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        toggleSendTarget(entry.tabId);
+        return;
+      }
+
+      sendTargetTabIds = new Set([entry.tabId]);
+      markSendTargetInteraction(entry.tabId);
+      updateConnectionSummary();
+      updateControls();
+      renderConnectionTabPicker(linkedTabsCache);
+    });
+
+    connectionTabPicker.appendChild(chip);
   });
 }
 
 async function broadcastToSelectedTabs(payload) {
-  const tabIds = getSelectedBroadcastTabIds();
+  const tabIds = getEffectiveTargetTabIds();
 
   if (tabIds.length === 0) {
-    setStatus("Select at least one chat below.", "red");
+    setStatus("Select at least one chat below.", "error");
     return null;
   }
 
@@ -909,34 +1070,34 @@ async function broadcastToSelectedTabs(payload) {
   };
 }
 
-function updateBroadcastModeUi() {
-  const broadcastOn = broadcastToggle.checked;
-  connectionBox?.classList.toggle("broadcast-mode", broadcastOn);
+async function addPromptToSingleTab(tabId, payload) {
+  await ensureContentScript(tabId);
+  const response = await sendMessageToTab(tabId, { action: "add_to_queue", ...payload });
 
-  if (broadcastOn) {
-    connectionTargetHint.classList.add("hidden");
-  } else if (linkedTabsCache.length > 1) {
-    connectionTargetHint.classList.remove("hidden");
-    connectionTargetHint.innerText =
-      "Tap another chat below to change where prompts are sent.";
-  } else {
-    connectionTargetHint.classList.add("hidden");
+  if (!isActionSuccess(response)) {
+    setStatus(response?.error || "Could not add to queue.", "error");
+    if (response?.error?.includes("Connection failed") && tabId === managedTabId) {
+      setConnectionStatus("disconnected");
+    }
+    return null;
   }
+
+  return response;
 }
 
-function setBroadcastPanelVisible(visible) {
-  broadcastPanel.classList.toggle("hidden", !visible);
-  updateBroadcastModeUi();
+async function addPromptToTargets(payload) {
+  const tabIds = getEffectiveTargetTabIds();
 
-  if (visible) {
-    loadBroadcastTabs();
+  if (tabIds.length === 0) {
+    setStatus("Select at least one chat below.", "error");
+    return null;
   }
-}
 
-function setBroadcastTabSelection(checked) {
-  broadcastTabList.querySelectorAll("input[data-broadcast-tab]").forEach((input) => {
-    input.checked = checked;
-  });
+  if (tabIds.length > 1) {
+    return broadcastToSelectedTabs(payload);
+  }
+
+  return addPromptToSingleTab(tabIds[0], payload);
 }
 
 function truncate(text, max = 80) {
@@ -964,50 +1125,82 @@ function updateConnectionTargetIcon(url) {
   connectionTargetIcon.classList.remove("hidden");
 }
 
-function renderConnectionTabPicker(linked, activeTabId) {
-  connectionTabPicker.innerHTML = "";
+function renderConnectionBar(linked, ignoredEntries = ignoredTabsCache) {
+  const managed = linked.find((entry) => entry.tabId === managedTabId);
+  const ignoredCount = ignoredEntries.length;
 
-  if (linked.length <= 1) {
+  if (!managed) {
+    tabsToggle.classList.add("hidden");
+    linkedTabsPanel.classList.add("hidden");
     connectionTabPicker.classList.add("hidden");
     connectionTargetHint.classList.add("hidden");
+    connectionChipLabel?.classList.add("hidden");
+    queueViewRow?.classList.add("hidden");
+    connectionTargetIcon.classList.add("hidden");
     return;
   }
 
-  connectionTabPicker.classList.remove("hidden");
-  connectionTargetHint.classList.remove("hidden");
+  setConnectionStatus("connected", {
+    site: managed.state.site,
+    chatId: managed.state.chatId ?? null,
+    url: managed.url
+  });
 
-  linked.forEach((entry) => {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "connection-tab-chip";
-    chip.setAttribute("role", "tab");
-    chip.setAttribute("aria-selected", entry.tabId === activeTabId ? "true" : "false");
-    if (entry.tabId === activeTabId) chip.classList.add("active");
+  renderConnectionTabPicker(linked);
+  renderQueueViewPicker(linked);
+  updateConnectionSummary();
+  updateGoToTabButtons();
 
-    const llm = getLlmForUrl(entry.url);
-    if (llm) {
-      const icon = document.createElement("img");
-      icon.src = getLlmFaviconUrl(llm.host);
-      icon.alt = "";
-      icon.setAttribute("aria-hidden", "true");
-      chip.appendChild(icon);
-    }
+  if (ignoredCount > 0) {
+    tabsToggle.classList.remove("hidden");
+    tabsToggle.innerText = linkedTabsExpanded
+      ? `Ignored (${ignoredCount}) ▴`
+      : `Ignored (${ignoredCount}) ▾`;
+  } else {
+    tabsToggle.classList.add("hidden");
+    linkedTabsPanel.classList.add("hidden");
+    linkedTabsExpanded = false;
+  }
+
+  linkedTabsPanel.innerHTML = "";
+
+  if (!linkedTabsExpanded || ignoredCount === 0) {
+    linkedTabsPanel.classList.add("hidden");
+    return;
+  }
+
+  linkedTabsPanel.classList.remove("hidden");
+
+  const heading = document.createElement("div");
+  heading.className = "linked-tabs-heading";
+  heading.innerText = "Ignored tabs";
+  linkedTabsPanel.appendChild(heading);
+
+  ignoredEntries.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "linked-tab-row ignored";
 
     const label = document.createElement("span");
-    label.innerText = entry.state?.site || getSiteFromUrl(entry.url);
-    chip.appendChild(label);
+    label.className = "ignored-tab-label";
+    const site = getSiteFromUrl(entry.url);
+    label.innerText = `${truncate(entry.title || "Untitled", 28)} | ${site}`;
 
-    if (entry.tabId === activeTabId) {
-      const check = document.createElement("span");
-      check.className = "connection-tab-chip-check";
-      check.setAttribute("aria-hidden", "true");
-      check.innerText = "✓";
-      chip.appendChild(check);
-    } else {
-      chip.addEventListener("click", () => selectManagedTab(entry.tabId));
-    }
+    const restoreBtn = document.createElement("button");
+    restoreBtn.type = "button";
+    restoreBtn.className = "restore-tab";
+    restoreBtn.innerText = "Restore";
+    restoreBtn.title = "Manage this tab again";
+    restoreBtn.addEventListener("click", () => restoreTab(entry.tabId));
 
-    connectionTabPicker.appendChild(chip);
+    row.appendChild(label);
+    row.appendChild(
+      createGoToTabButton(entry.tabId, {
+        compact: true,
+        title: `Go to ${truncate(entry.title || "tab", 40)}`
+      })
+    );
+    row.appendChild(restoreBtn);
+    linkedTabsPanel.appendChild(row);
   });
 }
 
@@ -1128,141 +1321,6 @@ async function selectManagedTab(tabId) {
   );
 }
 
-function renderConnectionBar(linked, ignoredEntries = ignoredTabsCache) {
-  const managed = linked.find((entry) => entry.tabId === managedTabId);
-  const ignoredCount = ignoredEntries.length;
-
-  if (!managed) {
-    tabsToggle.classList.add("hidden");
-    linkedTabsPanel.classList.add("hidden");
-    connectionTabPicker.classList.add("hidden");
-    connectionTargetHint.classList.add("hidden");
-    connectionTargetIcon.classList.add("hidden");
-    return;
-  }
-
-  setConnectionStatus("connected", {
-    site: managed.state.site,
-    chatId: managed.state.chatId ?? null,
-    url: managed.url
-  });
-
-  renderConnectionTabPicker(linked, managedTabId);
-
-  const otherTabCount = Math.max(0, linked.length - 1);
-  const showManageToggle = otherTabCount > 0 || ignoredCount > 0;
-
-  if (showManageToggle) {
-    tabsToggle.classList.remove("hidden");
-    if (linkedTabsExpanded) {
-      tabsToggle.innerText = "Manage tabs ▴";
-    } else if (ignoredCount > 0 && otherTabCount > 0) {
-      tabsToggle.innerText = `Manage tabs · ${ignoredCount} ignored ▾`;
-    } else if (ignoredCount > 0) {
-      tabsToggle.innerText = `Ignored (${ignoredCount}) ▾`;
-    } else {
-      tabsToggle.innerText = "Manage tabs ▾";
-    }
-  } else {
-    tabsToggle.classList.add("hidden");
-    linkedTabsPanel.classList.add("hidden");
-    linkedTabsExpanded = false;
-  }
-
-  linkedTabsPanel.innerHTML = "";
-
-  if (!linkedTabsExpanded || !showManageToggle) {
-    linkedTabsPanel.classList.add("hidden");
-    return;
-  }
-
-  linkedTabsPanel.classList.remove("hidden");
-
-  linked.forEach((entry) => {
-    if (entry.tabId === managedTabId) return;
-
-    linkedTabsPanel.appendChild(
-      createLinkedTabRow(entry, {
-        selected: false,
-        onSelect: () => selectManagedTab(entry.tabId),
-        onIgnore: () => ignoreTab(entry.tabId)
-      })
-    );
-  });
-
-  if (ignoredEntries.length > 0) {
-    const heading = document.createElement("div");
-    heading.className = "linked-tabs-heading";
-    heading.innerText = "Ignored tabs";
-    linkedTabsPanel.appendChild(heading);
-
-    ignoredEntries.forEach((entry) => {
-      const row = document.createElement("div");
-      row.className = "linked-tab-row ignored";
-
-      const label = document.createElement("span");
-      label.className = "ignored-tab-label";
-      const site = getSiteFromUrl(entry.url);
-      label.innerText = `${truncate(entry.title || "Untitled", 28)} | ${site}`;
-
-      const restoreBtn = document.createElement("button");
-      restoreBtn.type = "button";
-      restoreBtn.className = "restore-tab";
-      restoreBtn.innerText = "Restore";
-      restoreBtn.title = "Manage this tab again";
-      restoreBtn.addEventListener("click", () => restoreTab(entry.tabId));
-
-      row.appendChild(label);
-      row.appendChild(
-        createGoToTabButton(entry.tabId, {
-          compact: true,
-          title: `Go to ${truncate(entry.title || "tab", 40)}`
-        })
-      );
-      row.appendChild(restoreBtn);
-      linkedTabsPanel.appendChild(row);
-    });
-  }
-}
-
-function createLinkedTabRow(entry, { selected, onSelect, onIgnore }) {
-  const row = document.createElement("div");
-  row.className = "linked-tab-row";
-  if (selected) row.classList.add("selected");
-
-  const selectBtn = document.createElement("button");
-  selectBtn.type = "button";
-  selectBtn.className = "select-tab";
-  const site = getSiteFromUrl(entry.url);
-  const chatId = getChatIdFromUrl(entry.url);
-  const labelParts = [site];
-  if (chatId) labelParts.push(truncate(chatId, 16));
-  if (entry.isActive) labelParts.push("active");
-  selectBtn.innerText = `${truncate(entry.title || "Untitled", 28)} | ${labelParts.join(" | ")}`;
-  selectBtn.title = entry.title || "";
-  selectBtn.addEventListener("click", onSelect);
-
-  const ignoreBtn = document.createElement("button");
-  ignoreBtn.type = "button";
-  ignoreBtn.className = "ignore-tab";
-  ignoreBtn.innerText = "x";
-  ignoreBtn.title = "Stop managing this tab";
-  ignoreBtn.addEventListener("click", (event) => {
-    event.stopPropagation();
-    onIgnore();
-  });
-
-  row.appendChild(selectBtn);
-  row.appendChild(
-    createGoToTabButton(entry.tabId, {
-      compact: true,
-      title: `Go to ${truncate(entry.title || "tab", 40)}`
-    })
-  );
-  row.appendChild(ignoreBtn);
-  return row;
-}
-
 async function pingTab(tabId) {
   const response = await sendMessageToTab(tabId, { action: "ping_connection" });
   return response?.connected ? response : null;
@@ -1322,6 +1380,7 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
   }
 
   linkedTabsCache = linked;
+  normalizeSendTargetTabIds();
 
   if (!managed) {
     const allSupportedCount = tabs.filter(
@@ -1373,6 +1432,7 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
       chatId: managed.state.chatId ?? null,
       url: managed.url
     });
+    updateConnectionSummary();
   }
 
   const stateSignature = getQueueStateSignature(managed.state);
@@ -1400,12 +1460,8 @@ function setConnectionStatus(status, { site = "", chatId = null, url = null } = 
 
   if (status === "connected") {
     connectionDot.classList.add("connected");
-    connectionText.innerText = formatConnectionLabel(site);
-    connectionText.title = chatId
-      ? `Chat ID: ${chatId}. Prompts you add go to this tab.`
-      : "Prompts you add from this panel go to this chat tab.";
-    updateConnectionTargetIcon(url);
     isConnected = true;
+    updateConnectionSummary();
   } else if (status === "disconnected") {
     connectionDot.classList.add("disconnected");
     connectionText.innerText = "No chat selected";
@@ -1426,7 +1482,7 @@ function setConnectionStatus(status, { site = "", chatId = null, url = null } = 
     isConnected = false;
   }
 
-  updateManagedTabGoButton();
+  updateGoToTabButtons();
   updateControls();
 }
 
@@ -1795,20 +1851,27 @@ function updateControls() {
   const controlsOk = canUseQueueControls(state);
   const atCheckpoint = state?.pauseReason === "checkpoint";
 
-  const allowAdd = controlsOk || broadcastToggle.checked;
+  const selectedIds = getEffectiveTargetTabIds();
+  const targetConnected = selectedIds.some((tabId) =>
+    linkedTabsCache.some((entry) => entry.tabId === tabId)
+  );
+  const allowAdd = selectedIds.length > 0 && (selectedIds.length > 1 || targetConnected);
   queueBtn.disabled = !allowAdd;
   promptText.disabled = !allowAdd;
 
-  const targetSite =
-    state?.site ||
-    linkedTabsCache.find((entry) => entry.tabId === managedTabId)?.state?.site ||
-    "";
+  let targetSite = "";
+  if (selectedIds.length === 1) {
+    const entry = linkedTabsCache.find((item) => item.tabId === selectedIds[0]);
+    targetSite = entry?.state?.site || getSiteFromUrl(entry?.url) || "";
+  }
 
-  queueBtn.innerText = broadcastToggle.checked
-    ? "Send to selected chats"
-    : targetSite
-      ? `Add to ${targetSite}`
-      : "Add to Queue";
+  if (selectedIds.length > 1) {
+    queueBtn.innerText = `Send to ${selectedIds.length} chats`;
+  } else if (targetSite) {
+    queueBtn.innerText = `Add to ${targetSite}`;
+  } else {
+    queueBtn.innerText = "Add to Queue";
+  }
 
   clearBtn.disabled = !controlsOk || !hasQueue;
 
@@ -2018,16 +2081,14 @@ queueBtn.addEventListener("click", async () => {
     personaId: usePersonaToggle.checked ? personaSelect.value || null : null
   };
 
-  if (broadcastToggle.checked) {
-    const result = await broadcastToSelectedTabs(payload);
+  const result = await addPromptToTargets(payload);
+  if (!result) return;
 
-    if (!result) {
-      return;
-    }
+  if (settings.clearPromptAfterAdd) {
+    resetComposeFormAfterAdd();
+  }
 
-    if (settings.clearPromptAfterAdd) {
-      resetComposeFormAfterAdd();
-    }
+  if ("successCount" in result) {
     setStatus(
       `Sent to ${result.successCount}/${result.total} chat${result.total === 1 ? "" : "s"}`,
       result.successCount > 0 ? "success" : "error"
@@ -2036,14 +2097,8 @@ queueBtn.addEventListener("click", async () => {
     return;
   }
 
-  const response = await sendQueueAction("add_to_queue", payload);
-  if (!isActionSuccess(response)) return;
-
-  if (settings.clearPromptAfterAdd) {
-    resetComposeFormAfterAdd();
-  }
-  setStatus(`Added! Queue size: ${response.queueLength}`, "success", {
-    tabId: managedTabId
+  setStatus(`Added! Queue size: ${result.queueLength}`, "success", {
+    tabId: getEffectiveTargetTabIds()[0] ?? managedTabId
   });
 });
 
@@ -2073,11 +2128,6 @@ clearBtn.addEventListener("click", async () => {
 
 usePersonaToggle.addEventListener("change", updatePersonaFieldVisibility);
 
-broadcastToggle.addEventListener("change", () => {
-  setBroadcastPanelVisible(broadcastToggle.checked);
-  updateControls();
-});
-
 tabsToggle.addEventListener("click", () => {
   linkedTabsExpanded = !linkedTabsExpanded;
   lastLinkedTabsSignature = "";
@@ -2094,12 +2144,13 @@ reconnectBtn.addEventListener("click", async () => {
   await refreshLinkedTabs({ showChecking: true });
 });
 
-goToManagedTabBtn.addEventListener("click", () => {
-  goToTab(managedTabId);
+goToSendTargetBtn.addEventListener("click", () => {
+  goToTab(getSendTargetGoTabId());
 });
 
-broadcastSelectAll.addEventListener("click", () => setBroadcastTabSelection(true));
-broadcastSelectNone.addEventListener("click", () => setBroadcastTabSelection(false));
+goToQueueViewBtn?.addEventListener("click", () => {
+  goToTab(managedTabId);
+});
 
 addPersonaBtn.addEventListener("click", () => addPersona());
 
@@ -2108,7 +2159,6 @@ llmLauncherToggle.addEventListener("click", toggleLlmLauncher);
 updateLlmLauncher(0);
 initInfoTips();
 initSettingsCards();
-updateBroadcastModeUi();
 bindSettingsControls();
 loadSettings().then(() => loadPersonas());
 refreshLinkedTabs({ showChecking: true });

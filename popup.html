@@ -351,11 +351,113 @@
       color: var(--text);
     }
 
+    .connection-target-hint {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--info-soft);
+      border: 1px solid rgba(67, 56, 202, 0.18);
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--info-text);
+    }
+
+    .connection-box.multi-target-mode .connection-target-hint {
+      background: var(--primary-soft);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: var(--primary);
+    }
+
+    .connection-hint-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .connection-hint-step {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .connection-hint-step-highlight {
+      padding: 5px 8px;
+      margin: 0 -2px;
+      border-radius: var(--radius-sm);
+      background: var(--info-soft);
+      border: 1px solid rgba(67, 56, 202, 0.18);
+      color: var(--info-text);
+    }
+
+    .connection-box.multi-target-mode .connection-hint-step-highlight {
+      background: var(--primary-soft);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: var(--primary);
+    }
+
+    .connection-hint-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      padding: 2px 7px;
+      border: 1px solid var(--border-strong);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      background: var(--surface-muted);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .connection-hint-step-highlight .connection-hint-badge {
+      background: var(--surface);
+      border-color: rgba(67, 56, 202, 0.25);
+      color: var(--info-text);
+    }
+
+    .connection-hint-plus {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .connection-hint-label {
+      font-weight: 500;
+    }
+
+    .connection-hint-label strong {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .connection-hint-step-highlight .connection-hint-label strong {
+      color: inherit;
+    }
+
     .connection-tab-picker {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+      margin-top: 4px;
+    }
+
+    .connection-chip-label {
+      display: block;
       margin-top: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
     }
 
     .connection-tab-chip {
@@ -374,18 +476,18 @@
       transition: background var(--transition), border-color var(--transition), color var(--transition);
     }
 
-    .connection-tab-chip:hover:not(.active) {
+    .connection-tab-chip:hover:not(.target) {
       background: var(--surface-muted);
       border-color: var(--border-strong);
       color: var(--text);
     }
 
-    .connection-tab-chip.active {
-      border-color: rgba(59, 130, 246, 0.45);
+    .connection-tab-chip.target {
+      border-color: rgba(59, 130, 246, 0.5);
       background: var(--primary-soft);
       color: var(--primary);
       font-weight: 600;
-      cursor: default;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.12);
     }
 
     .connection-tab-chip img {
@@ -397,40 +499,22 @@
     }
 
     .connection-tab-chip-check {
-      font-size: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--success);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
       line-height: 1;
-      opacity: 0.9;
+      flex-shrink: 0;
     }
 
-    .connection-target-hint {
-      margin: 6px 0 0;
-      font-size: 10px;
-      line-height: 1.4;
-      color: var(--text-muted);
-    }
-
-    .connection-box.broadcast-mode .connection-tab-picker {
-      display: none !important;
-    }
-
-    .connection-box.broadcast-mode .connection-target-block {
-      opacity: 0.55;
-    }
-
-    .broadcast-mode-banner {
-      display: none;
-      margin-top: 8px;
-      padding: 6px 10px;
-      border-radius: var(--radius-sm);
-      background: var(--info-soft);
+    .connection-box.multi-target-mode .connection-target-block .connection-target-label {
       color: var(--info-text);
-      font-size: 10px;
-      font-weight: 600;
-      line-height: 1.4;
-    }
-
-    .connection-box.broadcast-mode .broadcast-mode-banner {
-      display: block;
     }
 
     .link-btn {
@@ -454,7 +538,7 @@
 
     .linked-tabs-panel {
       margin-top: 8px;
-      max-height: 140px;
+      max-height: 120px;
       overflow-y: auto;
       border-top: 1px solid var(--border);
       padding-top: 8px;
@@ -1053,6 +1137,84 @@
       letter-spacing: -0.01em;
     }
 
+    .queue-view-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .queue-view-header .queue-view-label {
+      margin-bottom: 0;
+    }
+
+    .queue-view-row {
+      margin-bottom: 10px;
+    }
+
+    .queue-view-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .queue-view-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .queue-view-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px 5px 7px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      background: var(--surface-muted);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition);
+    }
+
+    .queue-view-chip:hover:not(.active) {
+      background: var(--surface);
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+
+    .queue-view-chip.active {
+      border-color: rgba(16, 185, 129, 0.55);
+      background: var(--success-soft);
+      color: #047857;
+      font-weight: 700;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
+    }
+
+    .queue-view-chip img {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .queue-view-chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      flex-shrink: 0;
+    }
+
     .queue-count {
       font-size: 11px;
       font-weight: 600;
@@ -1225,8 +1387,7 @@
       color: white;
     }
 
-    /* Broadcast & persona lists */
-    #broadcastTabList,
+    /* Persona list */
     #personaList {
       margin: 8px 0 0;
       padding: 0;
@@ -1235,60 +1396,21 @@
       overflow-y: auto;
     }
 
-    .broadcast-tab-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      padding: 8px 4px;
-      border-bottom: 1px solid var(--border);
-      transition: background var(--transition);
-    }
-
     .persona-item {
       padding: 8px 4px;
       border-bottom: 1px solid var(--border);
       transition: background var(--transition);
     }
 
-    .broadcast-tab-item:last-child,
     .persona-item:last-child {
       border-bottom: none;
     }
 
-    .broadcast-tab-item:hover,
     .persona-item:hover {
       background: var(--surface);
       border-radius: var(--radius-sm);
     }
 
-    .broadcast-tab-item label {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      cursor: pointer;
-      flex: 1;
-    }
-
-    .broadcast-tab-item input {
-      margin-top: 3px;
-      accent-color: var(--primary);
-      flex-shrink: 0;
-    }
-
-    .broadcast-tab-title {
-      word-break: break-word;
-      color: var(--text);
-      font-weight: 500;
-      font-size: 12px;
-    }
-
-    .broadcast-tab-meta {
-      color: var(--text-muted);
-      font-size: 10px;
-      margin-top: 2px;
-    }
-
-    .broadcast-empty,
     .persona-empty {
       color: var(--text-muted);
       font-size: 12px;
@@ -1691,7 +1813,7 @@
                 <span id="connectionText">Checking connection...</span>
               </div>
             </div>
-            <button type="button" id="goToManagedTabBtn" class="go-to-tab-btn hidden" title="Go to chat tab" aria-label="Go to chat tab">
+            <button type="button" id="goToSendTargetBtn" class="go-to-tab-btn hidden" title="Go to send target tab" aria-label="Go to send target tab">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                 <polyline points="15 3 21 3 21 9"/>
@@ -1699,11 +1821,16 @@
               </svg>
             </button>
             <button type="button" id="reconnectBtn" class="link-btn hidden">Reconnect</button>
-            <button type="button" id="tabsToggle" class="link-btn hidden">Ignored</button>
+            <button type="button" id="tabsToggle" class="link-btn hidden">Ignored ▾</button>
           </div>
-          <div id="connectionTabPicker" class="connection-tab-picker hidden" role="tablist" aria-label="Choose which chat receives prompts"></div>
-          <p id="connectionTargetHint" class="connection-target-hint hidden">Tap another chat below to change where prompts are sent.</p>
-          <p id="broadcastModeBanner" class="broadcast-mode-banner">Multiple-chat mode — prompts go to the checked chats below, not the single target above.</p>
+          <div id="connectionTargetHint" class="connection-target-hint hidden">
+            <span class="connection-hint-badge">Ctrl</span>
+            <span class="connection-hint-plus">+</span>
+            <span class="connection-hint-badge">Click</span>
+            <span class="connection-hint-label"><strong>Send to multiple chats</strong> <span class="connection-hint-plus">(⌘ on Mac)</span></span>
+          </div>
+          <span id="connectionChipLabel" class="connection-chip-label hidden">Where prompts go</span>
+          <div id="connectionTabPicker" class="connection-tab-picker hidden" role="group" aria-label="Choose where to send prompts"></div>
           <div id="linkedTabsPanel" class="linked-tabs-panel hidden"></div>
         </div>
       </div>
@@ -1750,15 +1877,6 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
               </div>
-              <div class="toggle-row">
-                <label class="toggle-chip">
-                  <input type="checkbox" id="broadcastToggle">
-                  Send to multiple chats
-                </label>
-                <button type="button" class="info-tip" data-tip="Adds the same prompt to the queue of every checked chat below. The single target above is ignored while this is on." aria-label="About send to multiple chats">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                </button>
-              </div>
             </div>
 
             <div id="personaFieldGroup" class="field-group persona-field-group hidden">
@@ -1766,20 +1884,6 @@
               <select id="personaSelect" aria-label="Select persona">
                 <option value="">None</option>
               </select>
-            </div>
-
-            <div id="broadcastPanel" class="sub-panel hidden">
-              <div class="sub-panel-header">
-                <span>Choose chats</span>
-                <button type="button" class="info-tip" data-tip="Checked chats each get this prompt in their queue. All open chats are selected by default — uncheck any you want to skip." aria-label="About choosing chats">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                </button>
-                <button type="button" id="broadcastSelectAll" class="link-btn">All</button>
-                <button type="button" id="broadcastSelectNone" class="link-btn">None</button>
-              </div>
-              <ul id="broadcastTabList">
-                <li class="broadcast-empty">No supported tabs open</li>
-              </ul>
             </div>
 
             <button type="button" id="queueBtn" class="btn btn-primary">Add to Queue</button>
@@ -1791,6 +1895,20 @@
           <div class="card-section">
             <div class="queue-header">
               <h4>Active queue</h4>
+            </div>
+
+            <div id="queueViewRow" class="queue-view-row hidden">
+              <div class="queue-view-header">
+                <span class="queue-view-label">Showing queue for</span>
+                <button type="button" id="goToQueueViewBtn" class="go-to-tab-btn go-to-tab-btn-compact hidden" title="Go to queue tab" aria-label="Go to queue tab">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                </button>
+              </div>
+              <div id="queueViewPicker" class="queue-view-picker" role="tablist" aria-label="Choose which chat queue to display"></div>
             </div>
 
             <div class="toolbar">
