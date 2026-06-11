@@ -762,6 +762,22 @@
       z-index: 201;
     }
 
+    .info-tip-measurer {
+      position: fixed;
+      top: -9999px;
+      left: 0;
+      visibility: hidden;
+      pointer-events: none;
+      width: max-content;
+      max-width: min(240px, calc(100vw - 24px));
+      padding: 8px 10px;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.45;
+      white-space: normal;
+    }
+
     .info-tip::after {
       content: attr(data-tip);
       position: absolute;
@@ -769,7 +785,7 @@
       left: 50%;
       transform: translateX(-50%);
       width: max-content;
-      max-width: 240px;
+      max-width: min(240px, calc(100vw - 24px));
       padding: 8px 10px;
       background: #1e293b;
       color: #f8fafc;
@@ -818,6 +834,28 @@
       bottom: calc(100% + 2px);
       border-bottom-color: transparent;
       border-top-color: #1e293b;
+    }
+
+    .info-tip.tooltip-align-end::after {
+      left: auto;
+      right: 0;
+      transform: none;
+    }
+
+    .info-tip.tooltip-align-end::before {
+      left: auto;
+      right: 5px;
+      transform: none;
+    }
+
+    .info-tip.tooltip-align-start::after {
+      left: 0;
+      transform: none;
+    }
+
+    .info-tip.tooltip-align-start::before {
+      left: 5px;
+      transform: none;
     }
 
     /* Panels */
@@ -1434,6 +1472,48 @@
       letter-spacing: -0.01em;
     }
 
+    .settings-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 0;
+    }
+
+    .settings-card-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 1;
+      min-width: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+    }
+
+    .settings-card-toggle .settings-group-title {
+      margin-bottom: 0;
+    }
+
+    .settings-card-chevron {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
+    .settings-card-body {
+      margin-top: 10px;
+    }
+
+    .settings-card.settings-card-collapsed .settings-card-body {
+      display: none;
+    }
+
     .settings-row {
       display: flex;
       flex-direction: column;
@@ -1526,18 +1606,20 @@
         <div class="card">
           <div class="card-section">
             <div class="field-group">
-              <span class="field-label">Persona</span>
-              <select id="personaSelect" aria-label="Select persona">
-                <option value="">None</option>
-              </select>
-            </div>
-
-            <div class="field-group">
               <span class="field-label">Prompt</span>
               <textarea id="promptText" placeholder="Write your next prompt here..." aria-label="Prompt text"></textarea>
             </div>
 
             <div class="options-row">
+              <div class="toggle-row">
+                <label class="toggle-chip">
+                  <input type="checkbox" id="usePersonaToggle">
+                  Use persona
+                </label>
+                <button type="button" class="info-tip" data-tip="Optional prefix and suffix wrapped around your prompt. Manage personas in Settings." aria-label="About use persona">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </div>
               <div class="toggle-row">
                 <label class="toggle-chip">
                   <input type="checkbox" id="pauseHereAdd">
@@ -1556,6 +1638,13 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
               </div>
+            </div>
+
+            <div id="personaFieldGroup" class="field-group persona-field-group hidden">
+              <label class="field-label" for="personaSelect">Persona</label>
+              <select id="personaSelect" aria-label="Select persona">
+                <option value="">None</option>
+              </select>
             </div>
 
             <div id="broadcastPanel" class="sub-panel hidden">
@@ -1597,22 +1686,31 @@
       </div>
 
       <div id="settingsPanel" class="settings-panel hidden">
-        <div class="card">
+        <div class="card settings-card" data-settings-section="personas">
           <div class="card-section">
-            <div class="settings-group-header">
-              <h4 class="settings-group-title">Personas</h4>
+            <div class="settings-card-header">
+              <button type="button" class="settings-card-toggle" aria-expanded="true">
+                <h4 class="settings-group-title">Personas</h4>
+                <span class="settings-card-chevron" aria-hidden="true">▴</span>
+              </button>
               <button type="button" id="addPersonaBtn" class="link-btn">+ Add new</button>
             </div>
-            <p class="settings-hint">Optional prefix and suffix text wrapped around every prompt. Manage personas here; pick one per prompt on the Queue tab.</p>
-            <ul id="personaList">
-              <li class="persona-empty">No personas yet</li>
-            </ul>
+            <div class="settings-card-body">
+              <p class="settings-hint">Optional prefix and suffix text wrapped around every prompt. Manage personas here; pick one per prompt on the Queue tab.</p>
+              <ul id="personaList">
+                <li class="persona-empty">No personas yet</li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card settings-card" data-settings-section="queue-defaults">
           <div class="card-section">
-            <h4 class="settings-group-title">Queue defaults</h4>
+            <button type="button" class="settings-card-toggle" aria-expanded="true">
+              <h4 class="settings-group-title">Queue defaults</h4>
+              <span class="settings-card-chevron" aria-hidden="true">▴</span>
+            </button>
+            <div class="settings-card-body">
 
             <div class="settings-row">
               <label class="field-label" for="settingsDefaultPersona">Default persona</label>
@@ -1651,12 +1749,17 @@
                 </button>
               </div>
             </div>
+            </div>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card settings-card" data-settings-section="behavior">
           <div class="card-section">
-            <h4 class="settings-group-title">Behavior</h4>
+            <button type="button" class="settings-card-toggle" aria-expanded="true">
+              <h4 class="settings-group-title">Behavior</h4>
+              <span class="settings-card-chevron" aria-hidden="true">▴</span>
+            </button>
+            <div class="settings-card-body">
 
             <div class="settings-row">
               <label class="field-label" for="settingsRefreshInterval">Connection refresh</label>
@@ -1689,15 +1792,21 @@
                 </button>
               </div>
             </div>
+            </div>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card settings-card" data-settings-section="data">
           <div class="card-section">
-            <h4 class="settings-group-title">Data</h4>
-            <p class="settings-hint">Restore tabs you previously chose to ignore.</p>
-            <div class="settings-actions">
-              <button type="button" id="settingsResetIgnored" class="btn btn-secondary">Reset ignored tabs</button>
+            <button type="button" class="settings-card-toggle" aria-expanded="true">
+              <h4 class="settings-group-title">Data</h4>
+              <span class="settings-card-chevron" aria-hidden="true">▴</span>
+            </button>
+            <div class="settings-card-body">
+              <p class="settings-hint">Restore tabs you previously chose to ignore.</p>
+              <div class="settings-actions">
+                <button type="button" id="settingsResetIgnored" class="btn btn-secondary">Reset ignored tabs</button>
+              </div>
             </div>
           </div>
         </div>

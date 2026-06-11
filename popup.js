@@ -99,6 +99,8 @@ const pauseBtn = document.getElementById("pauseBtn");
 const retryBtn = document.getElementById("retryBtn");
 const clearBtn = document.getElementById("clearBtn");
 const personaSelect = document.getElementById("personaSelect");
+const personaFieldGroup = document.getElementById("personaFieldGroup");
+const usePersonaToggle = document.getElementById("usePersonaToggle");
 const personaList = document.getElementById("personaList");
 const addPersonaBtn = document.getElementById("addPersonaBtn");
 const pauseHereAdd = document.getElementById("pauseHereAdd");
@@ -163,6 +165,44 @@ const GO_TO_TAB_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 const INFO_TIP_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
 
 const TOOLTIP_LAYER_MS = 150;
+const TOOLTIP_EDGE_PADDING = 12;
+let infoTipMeasurer = null;
+
+function getInfoTipMeasurer() {
+  if (!infoTipMeasurer) {
+    infoTipMeasurer = document.createElement("div");
+    infoTipMeasurer.className = "info-tip-measurer";
+    document.body.appendChild(infoTipMeasurer);
+  }
+  return infoTipMeasurer;
+}
+
+function positionInfoTip(button) {
+  const text = button.dataset.tip || "";
+  if (!text) return;
+
+  button.classList.remove("tooltip-align-start", "tooltip-align-end", "tooltip-above");
+
+  const measurer = getInfoTipMeasurer();
+  measurer.textContent = text;
+  const tipRect = measurer.getBoundingClientRect();
+  const buttonRect = button.getBoundingClientRect();
+  const panelWidth = document.documentElement.clientWidth;
+  const centerX = buttonRect.left + buttonRect.width / 2;
+  const halfWidth = tipRect.width / 2;
+
+  if (centerX + halfWidth > panelWidth - TOOLTIP_EDGE_PADDING) {
+    button.classList.add("tooltip-align-end");
+  } else if (centerX - halfWidth < TOOLTIP_EDGE_PADDING) {
+    button.classList.add("tooltip-align-start");
+  }
+
+  const spaceBelow = window.innerHeight - buttonRect.bottom - 8;
+  const spaceAbove = buttonRect.top - 8;
+  if (spaceBelow < tipRect.height + 8 && spaceAbove > spaceBelow) {
+    button.classList.add("tooltip-above");
+  }
+}
 
 function setInfoTipLayers(button, open) {
   const layerTargets = [
@@ -189,6 +229,7 @@ function bindInfoTip(button) {
       clearTimeout(closeTimer);
       closeTimer = null;
     }
+    positionInfoTip(button);
     button.classList.add("is-open");
     setInfoTipLayers(button, true);
   };
@@ -197,6 +238,7 @@ function bindInfoTip(button) {
     if (closeTimer) clearTimeout(closeTimer);
     button.classList.remove("is-open");
     closeTimer = setTimeout(() => {
+      button.classList.remove("tooltip-align-start", "tooltip-align-end", "tooltip-above");
       setInfoTipLayers(button, false);
       closeTimer = null;
     }, TOOLTIP_LAYER_MS);
@@ -222,6 +264,28 @@ function createInfoTip(text, ariaLabel = "More info", { above = false } = {}) {
 
 function initInfoTips() {
   document.querySelectorAll(".info-tip").forEach((button) => bindInfoTip(button));
+}
+
+function updateSettingsCard(card, expanded) {
+  card.classList.toggle("settings-card-collapsed", !expanded);
+  const toggle = card.querySelector(".settings-card-toggle");
+  const chevron = card.querySelector(".settings-card-chevron");
+  if (toggle) toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+  if (chevron) chevron.textContent = expanded ? "▴" : "▾";
+}
+
+function toggleSettingsCard(card) {
+  const expanded = card.classList.contains("settings-card-collapsed");
+  updateSettingsCard(card, expanded);
+}
+
+function initSettingsCards() {
+  document.querySelectorAll(".settings-card").forEach((card) => {
+    const toggle = card.querySelector(".settings-card-toggle");
+    if (!toggle || toggle.dataset.settingsCardBound) return;
+    toggle.dataset.settingsCardBound = "1";
+    toggle.addEventListener("click", () => toggleSettingsCard(card));
+  });
 }
 
 async function goToTab(tabId) {
@@ -383,15 +447,36 @@ async function persistSettings(partial) {
   }
 }
 
-function applyQueueDefaultsFromSettings() {
-  pauseHereAdd.checked = Boolean(settings.defaultHoldBeforeSending);
-
+function applyPersonaSelectDefault() {
   if (
     settings.defaultPersonaId &&
     personas.some((persona) => persona.id === settings.defaultPersonaId)
   ) {
     personaSelect.value = settings.defaultPersonaId;
+  } else {
+    personaSelect.value = "";
   }
+}
+
+function updatePersonaFieldVisibility() {
+  const visible = Boolean(usePersonaToggle.checked);
+  personaFieldGroup.classList.toggle("hidden", !visible);
+  if (visible) {
+    applyPersonaSelectDefault();
+  }
+}
+
+function resetComposeFormAfterAdd() {
+  promptText.value = "";
+  pauseHereAdd.checked = settings.defaultHoldBeforeSending;
+  usePersonaToggle.checked = false;
+  updatePersonaFieldVisibility();
+}
+
+function applyQueueDefaultsFromSettings() {
+  pauseHereAdd.checked = Boolean(settings.defaultHoldBeforeSending);
+  usePersonaToggle.checked = false;
+  updatePersonaFieldVisibility();
 }
 
 function renderSettingsPersonaOptions() {
@@ -1321,11 +1406,8 @@ function renderPersonaOptions() {
 
   if (selectedId && personas.some((persona) => persona.id === selectedId)) {
     personaSelect.value = selectedId;
-  } else if (
-    settings.defaultPersonaId &&
-    personas.some((persona) => persona.id === settings.defaultPersonaId)
-  ) {
-    personaSelect.value = settings.defaultPersonaId;
+  } else if (usePersonaToggle.checked) {
+    applyPersonaSelectDefault();
   }
 
   renderPersonaList();
@@ -1830,7 +1912,7 @@ queueBtn.addEventListener("click", async () => {
   const payload = {
     prompt: text,
     pauseAfter: pauseHereAdd.checked,
-    personaId: personaSelect.value || null
+    personaId: usePersonaToggle.checked ? personaSelect.value || null : null
   };
 
   if (broadcastToggle.checked) {
@@ -1841,8 +1923,7 @@ queueBtn.addEventListener("click", async () => {
     }
 
     if (settings.clearPromptAfterAdd) {
-      promptText.value = "";
-      pauseHereAdd.checked = settings.defaultHoldBeforeSending;
+      resetComposeFormAfterAdd();
     }
     setStatus(
       `Broadcast to ${result.successCount}/${result.total} selected tab${result.total === 1 ? "" : "s"}`,
@@ -1856,8 +1937,7 @@ queueBtn.addEventListener("click", async () => {
   if (!isActionSuccess(response)) return;
 
   if (settings.clearPromptAfterAdd) {
-    promptText.value = "";
-    pauseHereAdd.checked = settings.defaultHoldBeforeSending;
+    resetComposeFormAfterAdd();
   }
   setStatus(`Added! Queue size: ${response.queueLength}`, "success", {
     tabId: managedTabId
@@ -1887,6 +1967,8 @@ clearBtn.addEventListener("click", async () => {
 
   await sendQueueAction("clear_queue");
 });
+
+usePersonaToggle.addEventListener("change", updatePersonaFieldVisibility);
 
 broadcastToggle.addEventListener("change", () => {
   setBroadcastPanelVisible(broadcastToggle.checked);
@@ -1922,6 +2004,7 @@ renderLlmLauncher();
 llmLauncherToggle.addEventListener("click", toggleLlmLauncher);
 updateLlmLauncher(0);
 initInfoTips();
+initSettingsCards();
 bindSettingsControls();
 loadSettings().then(() => loadPersonas());
 refreshLinkedTabs({ showChecking: true });
