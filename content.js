@@ -1,5 +1,5 @@
 (() => {
-  const CONTENT_VERSION = 10;
+  const CONTENT_VERSION = 11;
 
   if (!globalThis.LLM_PLATFORMS) {
     console.error("Prompt Flood: platforms.js must load before content.js.");
@@ -21,13 +21,103 @@
   let isPaused = false;
   let pauseReason = null;
   let lastError = null;
+  const attachmentCache = new Map();
 
-  function createQueueItem(text, { pauseAfter = false, personaId = null } = {}) {
+  function normalizeBinaryData(data) {
+    if (data instanceof ArrayBuffer) {
+      return new Uint8Array(data);
+    }
+
+    if (ArrayBuffer.isView(data)) {
+      return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    }
+
+    if (Array.isArray(data)) {
+      return Uint8Array.from(data);
+    }
+
+    return null;
+  }
+
+  function bytesToFile(entry) {
+    const bytes = normalizeBinaryData(entry.data);
+    if (!bytes || !entry.name || !entry.mimeType) {
+      return null;
+    }
+
+    return new File([bytes], entry.name, {
+      type: entry.mimeType,
+      lastModified: Date.now()
+    });
+  }
+
+  function cacheAttachmentBytes(entries) {
+    if (!Array.isArray(entries)) return;
+
+    for (const entry of entries) {
+      if (!entry?.id || entry.data == null) continue;
+
+      attachmentCache.set(entry.id, {
+        id: entry.id,
+        name: entry.name,
+        mimeType: entry.mimeType,
+        data: entry.data
+      });
+    }
+  }
+
+  function fetchAttachmentsFromBackground(ids) {
+    if (!ids.length) return Promise.resolve([]);
+
+    return new Promise((resolve) => {
+      const attempt = (retriesLeft) => {
+        chrome.runtime.sendMessage({ action: "get_attachments", ids }, (response) => {
+          if (!chrome.runtime.lastError && response?.ok && response.attachments?.length) {
+            cacheAttachmentBytes(response.attachments);
+            resolve(response.attachments);
+            return;
+          }
+
+          if (retriesLeft <= 0) {
+            resolve([]);
+            return;
+          }
+
+          setTimeout(() => attempt(retriesLeft - 1), 250);
+        });
+      };
+
+      attempt(3);
+    });
+  }
+
+  function normalizeAttachments(attachments) {
+    if (!Array.isArray(attachments)) return [];
+
+    return attachments
+      .map((entry) => {
+        if (!entry?.id || !entry?.name || !entry?.mimeType) return null;
+
+        return {
+          id: entry.id,
+          name: entry.name,
+          mimeType: entry.mimeType,
+          size: Number(entry.size) || 0
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function createQueueItem(
+    text,
+    { pauseAfter = false, personaId = null, attachments = [] } = {}
+  ) {
     return {
       id: crypto.randomUUID(),
-      text: text.trim(),
+      text: (text || "").trim(),
       pauseAfter: Boolean(pauseAfter),
-      personaId: personaId || null
+      personaId: personaId || null,
+      attachments: normalizeAttachments(attachments)
     };
   }
 
@@ -44,8 +134,84 @@
       id: item.id || crypto.randomUUID(),
       text: item.text.trim(),
       pauseAfter: Boolean(item.pauseAfter),
-      personaId: item.personaId || null
+      personaId: item.personaId || null,
+      attachments: normalizeAttachments(item.attachments)
     };
+  }
+
+  function getAttachmentIds(item) {
+    return (item.attachments || []).map((entry) => entry.id);
+  }
+
+  function deleteStoredAttachments(ids) {
+    if (!ids.length) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: "delete_attachments", ids }, () => resolve());
+    });
+  }
+
+  function cloneStoredAttachments(attachments) {
+    if (!attachments?.length) return Promise.resolve([]);
+
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { action: "clone_attachments", attachments },
+        (response) => {
+          if (chrome.runtime.lastError || !response?.ok) {
+            resolve([]);
+            return;
+          }
+
+          resolve(normalizeAttachments(response.attachments));
+        }
+      );
+    });
+  }
+
+  async function releaseQueueItemAttachments(item) {
+    for (const id of getAttachmentIds(item)) {
+      attachmentCache.delete(id);
+    }
+
+    await deleteStoredAttachments(getAttachmentIds(item));
+  }
+
+  async function fetchAttachmentFiles(attachments) {
+    const refs = normalizeAttachments(attachments);
+    if (!refs.length) return [];
+
+    const missingIds = refs
+      .filter((entry) => !attachmentCache.has(entry.id))
+      .map((entry) => entry.id);
+
+    if (missingIds.length) {
+      await fetchAttachmentsFromBackground(missingIds);
+    }
+
+    const files = [];
+
+    for (const ref of refs) {
+      const cached = attachmentCache.get(ref.id);
+      if (!cached) continue;
+
+      const file = bytesToFile({
+        ...cached,
+        name: ref.name || cached.name,
+        mimeType:
+          ref.mimeType ||
+          cached.mimeType ||
+          ((ref.name || cached.name || "").toLowerCase().endsWith(".pdf")
+            ? "application/pdf"
+            : "")
+      });
+
+      if (file) {
+        files.push(file);
+      }
+    }
+
+    return files;
   }
 
   function getPlatform() {
@@ -205,17 +371,27 @@
 
     switch (request.action) {
       case "add_to_queue": {
-        const prompt = request.prompt?.trim();
-        if (!prompt) {
-          return errorResponse("Prompt cannot be empty.");
+        const prompt = request.prompt?.trim() || "";
+        const attachments = normalizeAttachments(request.attachments);
+
+        if (!prompt && !attachments.length) {
+          return errorResponse("Prompt or attachment is required.");
         }
+
+        const platform = getPlatform();
+        if (attachments.length && !platform?.supportsAttachments) {
+          return errorResponse("Attachments are only supported on ChatGPT, Gemini, and Claude.");
+        }
+
+        cacheAttachmentBytes(request.attachmentBytes);
 
         const wasEmpty = promptQueue.length === 0;
 
         promptQueue.push(
           createQueueItem(prompt, {
             pauseAfter: request.pauseAfter,
-            personaId: request.personaId
+            personaId: request.personaId,
+            attachments
           })
         );
         await persistState();
@@ -240,7 +416,8 @@
           return errorResponse("Invalid queue index.");
         }
 
-        promptQueue.splice(index, 1);
+        const [removedItem] = promptQueue.splice(index, 1);
+        await releaseQueueItemAttachments(removedItem);
 
         if (promptQueue.length === 0) {
           isProcessing = false;
@@ -327,7 +504,11 @@
           return errorResponse("Invalid queue index.");
         }
 
-        const copy = { ...promptQueue[index], id: crypto.randomUUID() };
+        const copy = {
+          ...promptQueue[index],
+          id: crypto.randomUUID(),
+          attachments: await cloneStoredAttachments(promptQueue[index].attachments)
+        };
         promptQueue.splice(index + 1, 0, copy);
         await persistState();
         return successResponse();
@@ -341,8 +522,10 @@
           return errorResponse("Invalid queue index.");
         }
 
-        if (!prompt) {
-          return errorResponse("Prompt cannot be empty.");
+        const attachments = promptQueue[index].attachments || [];
+
+        if (!prompt && !attachments.length) {
+          return errorResponse("Prompt or attachment is required.");
         }
 
         if (isProcessing && index === 0) {
@@ -370,7 +553,11 @@
         return successResponse();
       }
 
-      case "clear_queue":
+      case "clear_queue": {
+        for (const item of promptQueue) {
+          await releaseQueueItemAttachments(item);
+        }
+
         promptQueue = [];
         isProcessing = false;
         isPaused = false;
@@ -378,6 +565,7 @@
         lastError = null;
         await persistState();
         return successResponse();
+      }
 
       case "pause_queue":
         isPaused = true;
@@ -494,7 +682,16 @@
 
     const currentItem = promptQueue[0];
     const wrappedText = await wrapWithPersona(currentItem.text, currentItem.personaId);
-    const success = await sendPrompt(platform, wrappedText);
+    const attachmentFiles = await fetchAttachmentFiles(currentItem.attachments);
+
+    if (currentItem.attachments?.length && !attachmentFiles.length) {
+      lastError = "Failed to load attachments. Try removing and re-adding the prompt.";
+      isProcessing = false;
+      await persistState();
+      return;
+    }
+
+    const success = await sendPrompt(platform, wrappedText, { files: attachmentFiles });
 
     if (!success) {
       lastError = "Failed to send prompt. Check the chat page or use Retry.";
@@ -504,6 +701,7 @@
     }
 
     const sentItem = promptQueue.shift();
+    await releaseQueueItemAttachments(sentItem);
     lastError = null;
     await persistState();
 

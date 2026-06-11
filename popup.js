@@ -1,4 +1,15 @@
-const CONTENT_VERSION = 10;
+const CONTENT_VERSION = 11;
+const ATTACHMENT_PLATFORM_IDS = new Set(["chatgpt", "gemini", "claude"]);
+const MAX_ATTACHMENTS = 3;
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf"
+]);
 const SUPPORTED_HOSTS = [
   "chatgpt.com",
   "chat.openai.com",
@@ -78,6 +89,9 @@ const SUPPORTED_LLMS = [
 
 const queueBtn = document.getElementById("queueBtn");
 const promptText = document.getElementById("promptText");
+const attachmentFileInput = document.getElementById("attachmentFileInput");
+const attachFileBtn = document.getElementById("attachFileBtn");
+const attachmentList = document.getElementById("attachmentList");
 const statusDiv = document.getElementById("status");
 const connectionDot = document.getElementById("connectionDot");
 const connectionText = document.getElementById("connectionText");
@@ -147,6 +161,7 @@ let managedTabId = null;
 let isConnected = false;
 let latestState = null;
 let personas = [];
+let composeAttachments = [];
 let pollTimer = null;
 let linkedTabsCache = [];
 let linkedTabsExpanded = false;
@@ -497,8 +512,145 @@ function updatePersonaFieldVisibility() {
   }
 }
 
+function supportsAttachmentsForUrl(url) {
+  const llm = getLlmForUrl(url);
+  return Boolean(llm && ATTACHMENT_PLATFORM_IDS.has(llm.id));
+}
+
+function getComposeFileMimeType(file) {
+  const reportedType = (file.type || "").toLowerCase();
+  if (reportedType) return reportedType;
+
+  const extension = (file.name || "").split(".").pop()?.toLowerCase();
+  const extensionMap = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+    pdf: "application/pdf"
+  };
+
+  return extensionMap[extension] || "";
+}
+
+function isAllowedComposeFile(file) {
+  const mimeType = getComposeFileMimeType(file);
+
+  if (!ALLOWED_ATTACHMENT_TYPES.has(mimeType)) {
+    return `"${file.name}" must be an image or PDF.`;
+  }
+
+  if (file.size > MAX_ATTACHMENT_SIZE) {
+    return `"${file.name}" exceeds the 5 MB limit.`;
+  }
+
+  return null;
+}
+
+function renderComposeAttachments() {
+  attachmentList.innerHTML = "";
+
+  composeAttachments.forEach((file, index) => {
+    const chip = document.createElement("span");
+    chip.className = "attachment-chip";
+
+    const name = document.createElement("span");
+    name.className = "attachment-chip-name";
+    name.title = file.name;
+    name.innerText = file.name;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.setAttribute("aria-label", `Remove ${file.name}`);
+    removeBtn.innerText = "×";
+    removeBtn.addEventListener("click", () => {
+      composeAttachments.splice(index, 1);
+      renderComposeAttachments();
+    });
+
+    chip.appendChild(name);
+    chip.appendChild(removeBtn);
+    attachmentList.appendChild(chip);
+  });
+
+  attachFileBtn.disabled = composeAttachments.length >= MAX_ATTACHMENTS;
+}
+
+function clearComposeAttachments() {
+  composeAttachments = [];
+  if (attachmentFileInput) {
+    attachmentFileInput.value = "";
+  }
+  renderComposeAttachments();
+}
+
+async function validateAttachmentTargets(tabIds) {
+  for (const tabId of tabIds) {
+    const entry = linkedTabsCache.find((item) => item.tabId === tabId);
+    const url = entry?.url;
+
+    if (!supportsAttachmentsForUrl(url)) {
+      const label = entry?.state?.site || getLlmForUrl(url)?.name || "Selected chat";
+      setStatus(`Attachments aren't supported for ${label}. Use ChatGPT, Gemini, or Claude.`, "error");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function storeComposeAttachments() {
+  const attachments = [];
+  const attachmentBytes = [];
+
+  for (const file of composeAttachments) {
+    const validationError = isAllowedComposeFile(file);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
+    const buffer = await file.arrayBuffer();
+    const bytes = [...new Uint8Array(buffer)];
+    const response = await runtimeMessage({
+      action: "store_attachment",
+      name: file.name,
+      mimeType: getComposeFileMimeType(file),
+      data: bytes
+    });
+
+    if (!response?.ok || !response.attachment) {
+      throw new Error(response?.error || `Could not store "${file.name}".`);
+    }
+
+    attachments.push(response.attachment);
+    attachmentBytes.push({
+      id: response.attachment.id,
+      name: response.attachment.name,
+      mimeType: response.attachment.mimeType,
+      data: bytes
+    });
+  }
+
+  return { attachments, attachmentBytes };
+}
+
+function formatQueuePreview(item) {
+  if (item.text) {
+    return truncate(item.text);
+  }
+
+  if (item.attachments?.length) {
+    const names = item.attachments.map((entry) => entry.name).join(", ");
+    return truncate(`Attachment: ${names}`);
+  }
+
+  return "(empty)";
+}
+
 function resetComposeFormAfterAdd() {
   promptText.value = "";
+  clearComposeAttachments();
   pauseHereAdd.checked = settings.defaultHoldBeforeSending;
   usePersonaToggle.checked = false;
   updatePersonaFieldVisibility();
@@ -1723,8 +1875,8 @@ function renderQueue(state) {
 
     const preview = document.createElement("span");
     preview.className = "queue-preview";
-    preview.title = item.text;
-    preview.innerText = truncate(item.text);
+    preview.title = item.text || item.attachments?.map((entry) => entry.name).join(", ") || "";
+    preview.innerText = formatQueuePreview(item);
 
     header.appendChild(badge);
     header.appendChild(preview);
@@ -1742,6 +1894,11 @@ function renderQueue(state) {
     meta.className = "queue-meta";
     const metaParts = [];
     if (item.personaId) metaParts.push(getPersonaName(item.personaId));
+    if (item.attachments?.length) {
+      metaParts.push(
+        `${item.attachments.length} attachment${item.attachments.length === 1 ? "" : "s"}`
+      );
+    }
     if (item.pauseAfter) metaParts.push("Pause after send");
     meta.innerText = metaParts.join(" | ");
 
@@ -2071,21 +2228,93 @@ tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
 
+attachFileBtn?.addEventListener("click", () => {
+  attachmentFileInput?.click();
+});
+
+attachmentFileInput?.addEventListener("change", () => {
+  const files = [...(attachmentFileInput.files || [])];
+  attachmentFileInput.value = "";
+
+  if (!files.length) return;
+
+  const remainingSlots = MAX_ATTACHMENTS - composeAttachments.length;
+  if (remainingSlots <= 0) {
+    setStatus(`You can attach up to ${MAX_ATTACHMENTS} files.`, "error");
+    return;
+  }
+
+  for (const file of files.slice(0, remainingSlots)) {
+    const validationError = isAllowedComposeFile(file);
+    if (validationError) {
+      setStatus(validationError, "error");
+      continue;
+    }
+
+    composeAttachments.push(file);
+  }
+
+  if (files.length > remainingSlots) {
+    setStatus(`Only ${MAX_ATTACHMENTS} attachments are allowed per prompt.`, "error");
+  }
+
+  renderComposeAttachments();
+});
+
 queueBtn.addEventListener("click", async () => {
   const text = promptText.value.trim();
-  if (!text) return;
+  if (!text && !composeAttachments.length) return;
+
+  const tabIds = getEffectiveTargetTabIds();
+  if (!tabIds.length) {
+    setStatus("Select at least one chat below.", "error");
+    return;
+  }
+
+  let storedAttachmentResult = { attachments: [], attachmentBytes: [] };
+
+  try {
+    if (composeAttachments.length) {
+      const supported = await validateAttachmentTargets(tabIds);
+      if (!supported) return;
+
+      storedAttachmentResult = await storeComposeAttachments();
+    }
+  } catch (error) {
+    if (storedAttachmentResult.attachments.length) {
+      await runtimeMessage({
+        action: "delete_attachments",
+        ids: storedAttachmentResult.attachments.map((entry) => entry.id)
+      });
+    }
+
+    setStatus(error.message || "Could not store attachments.", "error");
+    return;
+  }
 
   const payload = {
     prompt: text,
     pauseAfter: pauseHereAdd.checked,
-    personaId: usePersonaToggle.checked ? personaSelect.value || null : null
+    personaId: usePersonaToggle.checked ? personaSelect.value || null : null,
+    attachments: storedAttachmentResult.attachments,
+    attachmentBytes: storedAttachmentResult.attachmentBytes
   };
 
   const result = await addPromptToTargets(payload);
-  if (!result) return;
+  if (!result) {
+    if (storedAttachmentResult.attachments.length) {
+      await runtimeMessage({
+        action: "delete_attachments",
+        ids: storedAttachmentResult.attachments.map((entry) => entry.id)
+      });
+    }
+    return;
+  }
 
   if (settings.clearPromptAfterAdd) {
     resetComposeFormAfterAdd();
+  } else {
+    clearComposeAttachments();
   }
 
   if ("successCount" in result) {
@@ -2154,6 +2383,7 @@ goToQueueViewBtn?.addEventListener("click", () => {
 
 addPersonaBtn.addEventListener("click", () => addPersona());
 
+renderComposeAttachments();
 renderLlmLauncher();
 llmLauncherToggle.addEventListener("click", toggleLlmLauncher);
 updateLlmLauncher(0);

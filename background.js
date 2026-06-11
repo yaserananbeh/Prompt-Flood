@@ -1,3 +1,8 @@
+importScripts("attachments-store.js");
+
+const { storeBlob, getBlobs, deleteBlobs, cloneBlobs, validateAttachmentMeta, serializeAttachmentData } =
+  globalThis.PROMPT_FLOOD_ATTACHMENTS;
+
 const DEFAULT_PERSONAS = [
   {
     id: "academic",
@@ -85,8 +90,10 @@ async function broadcastPrompt(payload, tabIds) {
   }
 
   const results = [];
+  const baseAttachments = Array.isArray(payload.attachments) ? payload.attachments : [];
 
-  for (const tabId of tabIds) {
+  for (let index = 0; index < tabIds.length; index++) {
+    const tabId = tabIds[index];
     let tab;
 
     try {
@@ -99,9 +106,16 @@ async function broadcastPrompt(payload, tabIds) {
       continue;
     }
 
+    let tabPayload = payload;
+
+    if (index > 0 && baseAttachments.length > 0) {
+      const clonedAttachments = await cloneBlobs(baseAttachments);
+      tabPayload = { ...payload, attachments: clonedAttachments };
+    }
+
     const response = await relayToTab(tab.id, {
       action: "add_to_queue",
-      ...payload
+      ...tabPayload
     });
     results.push({ tabId: tab.id, site: tab.url, response });
   }
@@ -207,6 +221,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ ok: true, personas });
       })
       .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === "store_attachment") {
+    storeBlob({
+      name: request.name,
+      mimeType: request.mimeType,
+      data: request.data
+    })
+      .then((attachment) => sendResponse({ ok: true, attachment }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === "get_attachments") {
+    getBlobs(request.ids)
+      .then((attachments) =>
+        sendResponse({
+          ok: true,
+          attachments: attachments
+            .map(serializeAttachmentData)
+            .filter(Boolean)
+        })
+      )
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === "delete_attachments") {
+    deleteBlobs(request.ids)
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === "clone_attachments") {
+    cloneBlobs(request.attachments)
+      .then((attachments) => sendResponse({ ok: true, attachments }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === "validate_attachment_meta") {
+    try {
+      validateAttachmentMeta(request);
+      sendResponse({ ok: true });
+    } catch (error) {
+      sendResponse({ ok: false, error: error.message });
+    }
     return true;
   }
 
