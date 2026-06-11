@@ -683,6 +683,13 @@ globalThis.LLM_PLATFORMS = (() => {
     return false;
   }
 
+  function hasUsableAttachmentPreview(platform, expectedCount = 1) {
+    return (
+      countAttachmentIndicators(platform) >= expectedCount &&
+      !hasBrokenAttachment(platform)
+    );
+  }
+
   function getAttachmentWaitOptions(platform, files) {
     const hasPdf = filesIncludePdf(files);
 
@@ -715,8 +722,7 @@ globalThis.LLM_PLATFORMS = (() => {
       }
 
       if (
-        sawPreview &&
-        hasAttachmentLoading(platform) &&
+        !sawPreview &&
         Date.now() - startedAt > strategyTimeoutMs &&
         !findEnabledSendButton(platform)
       ) {
@@ -877,17 +883,6 @@ globalThis.LLM_PLATFORMS = (() => {
     return uploadViaFileInput(input, files);
   }
 
-  function getChatGPTFileInputStrategies(files) {
-    const inputs = rankChatGPTFileInputs(
-      [...document.querySelectorAll("input[type='file']")],
-      files
-    );
-
-    return inputs.map(
-      (input) => async () => uploadViaFileInput(input, files)
-    );
-  }
-
   function getAttachmentStrategies(platform, files) {
     const editor = getEditor(platform);
 
@@ -905,6 +900,10 @@ globalThis.LLM_PLATFORMS = (() => {
 
       if (filesIncludePdf(files)) {
         return [
+          async (activePlatform) => {
+            const input = findFileInput(activePlatform, files);
+            return uploadViaFileInput(input, files);
+          },
           async () => dropFilesOnComposer(editor, files),
           async (activePlatform) => {
             const plusButton = queryVisibleFirst(activePlatform.attachButton);
@@ -915,8 +914,7 @@ globalThis.LLM_PLATFORMS = (() => {
 
             const input = findFileInput(activePlatform, files);
             return uploadViaFileInput(input, files);
-          },
-          ...getChatGPTFileInputStrategies(files)
+          }
         ];
       }
     }
@@ -1003,16 +1001,20 @@ globalThis.LLM_PLATFORMS = (() => {
         platform.id === "chatgpt" && filesIncludePdf(files) && Boolean(trimmedText);
 
       for (const strategy of getAttachmentStrategies(platform, files)) {
-        removeComposerAttachments(platform);
+        const alreadyUploaded = hasUsableAttachmentPreview(platform, files.length);
 
-        const started = await strategy(platform, files);
-        if (!started) continue;
+        if (!alreadyUploaded) {
+          removeComposerAttachments(platform);
+
+          const started = await strategy(platform, files);
+          if (!started) continue;
+        }
 
         if (trimmedText && !deferTextUntilUpload) {
           const injected = await injectPromptText(platform, editor, trimmedText);
           if (!injected) {
             console.error(`${platform.name} text injection failed.`);
-            continue;
+            if (!alreadyUploaded) continue;
           }
         }
 
@@ -1027,13 +1029,18 @@ globalThis.LLM_PLATFORMS = (() => {
           if (!injected) {
             console.error(`${platform.name} text injection failed.`);
             processed = false;
-            continue;
+            if (!hasUsableAttachmentPreview(platform, files.length)) continue;
+            break;
           }
 
           await waitForEnabledSendButton(platform, ATTACH_PDF_SEND_TIMEOUT_MS);
         }
 
         if (processed) break;
+
+        if (hasUsableAttachmentPreview(platform, files.length)) {
+          break;
+        }
       }
 
       if (!processed) {
