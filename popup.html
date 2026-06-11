@@ -311,14 +311,126 @@
       height: 11px;
     }
 
+    .connection-target-block {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .connection-target-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .connection-target-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .connection-target-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      object-fit: contain;
+    }
+
     #connectionText {
       line-height: 1.4;
       word-break: break-word;
-      font-weight: 600;
-      font-size: 12px;
+      font-weight: 700;
+      font-size: 13px;
       flex: 1;
       min-width: 0;
       color: var(--text);
+    }
+
+    .connection-tab-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .connection-tab-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px 4px 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      background: var(--surface);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+
+    .connection-tab-chip:hover:not(.active) {
+      background: var(--surface-muted);
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+
+    .connection-tab-chip.active {
+      border-color: rgba(59, 130, 246, 0.45);
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 600;
+      cursor: default;
+    }
+
+    .connection-tab-chip img {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .connection-tab-chip-check {
+      font-size: 10px;
+      line-height: 1;
+      opacity: 0.9;
+    }
+
+    .connection-target-hint {
+      margin: 6px 0 0;
+      font-size: 10px;
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+
+    .connection-box.broadcast-mode .connection-tab-picker {
+      display: none !important;
+    }
+
+    .connection-box.broadcast-mode .connection-target-block {
+      opacity: 0.55;
+    }
+
+    .broadcast-mode-banner {
+      display: none;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--info-soft);
+      color: var(--info-text);
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .connection-box.broadcast-mode .broadcast-mode-banner {
+      display: block;
     }
 
     .link-btn {
@@ -1568,11 +1680,17 @@
 
     <div class="app-body">
       <div id="queueChrome">
-      <div class="connection-box">
+      <div id="connectionBox" class="connection-box">
         <span id="connectionDot" class="dot checking" aria-hidden="true"></span>
         <div class="connection-main">
           <div class="connection-summary">
-            <span id="connectionText">Checking connection...</span>
+            <div class="connection-target-block">
+              <span class="connection-target-label">Sending prompts to</span>
+              <div class="connection-target-row">
+                <img id="connectionTargetIcon" class="connection-target-icon hidden" alt="" aria-hidden="true">
+                <span id="connectionText">Checking connection...</span>
+              </div>
+            </div>
             <button type="button" id="goToManagedTabBtn" class="go-to-tab-btn hidden" title="Go to chat tab" aria-label="Go to chat tab">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -1581,8 +1699,11 @@
               </svg>
             </button>
             <button type="button" id="reconnectBtn" class="link-btn hidden">Reconnect</button>
-            <button type="button" id="tabsToggle" class="link-btn hidden">+0 tabs v</button>
+            <button type="button" id="tabsToggle" class="link-btn hidden">Ignored</button>
           </div>
+          <div id="connectionTabPicker" class="connection-tab-picker hidden" role="tablist" aria-label="Choose which chat receives prompts"></div>
+          <p id="connectionTargetHint" class="connection-target-hint hidden">Tap another chat below to change where prompts are sent.</p>
+          <p id="broadcastModeBanner" class="broadcast-mode-banner">Multiple-chat mode — prompts go to the checked chats below, not the single target above.</p>
           <div id="linkedTabsPanel" class="linked-tabs-panel hidden"></div>
         </div>
       </div>
@@ -1632,9 +1753,9 @@
               <div class="toggle-row">
                 <label class="toggle-chip">
                   <input type="checkbox" id="broadcastToggle">
-                  Broadcast
+                  Send to multiple chats
                 </label>
-                <button type="button" class="info-tip" data-tip="Send the same prompt to multiple open chat tabs at once. Pick which tabs to include in the list below before adding." aria-label="About broadcast">
+                <button type="button" class="info-tip" data-tip="Adds the same prompt to the queue of every checked chat below. The single target above is ignored while this is on." aria-label="About send to multiple chats">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
               </div>
@@ -1649,8 +1770,8 @@
 
             <div id="broadcastPanel" class="sub-panel hidden">
               <div class="sub-panel-header">
-                <span>Send to tabs</span>
-                <button type="button" class="info-tip" data-tip="Checked tabs receive a copy of this prompt in their queue. Use All or None to quickly select every supported chat tab." aria-label="About tab selection">
+                <span>Choose chats</span>
+                <button type="button" class="info-tip" data-tip="Checked chats each get this prompt in their queue. All open chats are selected by default — uncheck any you want to skip." aria-label="About choosing chats">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
                 <button type="button" id="broadcastSelectAll" class="link-btn">All</button>
@@ -1735,7 +1856,7 @@
                   <input type="checkbox" id="settingsClearPrompt">
                   Clear prompt after adding to queue
                 </label>
-                <button type="button" class="info-tip" data-tip="Empties the prompt box after you add to the queue or broadcast. Turn off to keep the text for quick edits and resends." aria-label="About clear prompt after add">
+                <button type="button" class="info-tip" data-tip="Empties the prompt box after you add to the queue or send to multiple chats. Turn off to keep the text for quick edits and resends." aria-label="About clear prompt after add">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
               </div>

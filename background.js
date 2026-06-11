@@ -100,8 +100,7 @@ async function broadcastPrompt(payload, tabIds) {
       continue;
     }
 
-    await injectContentScript(tab.id);
-    const response = await sendTabMessage(tab.id, {
+    const response = await relayToTab(tab.id, {
       action: "add_to_queue",
       ...payload
     });
@@ -146,7 +145,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     broadcastPrompt(request.payload, request.tabIds)
       .then((results) => {
         const successCount = results.filter((entry) => entry.response?.ok).length;
-        sendResponse({ ok: true, successCount, total: results.length, results });
+        sendResponse({
+          ok: true,
+          successCount,
+          total: request.tabIds?.length ?? results.length,
+          results
+        });
       })
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;

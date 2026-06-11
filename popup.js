@@ -89,6 +89,11 @@ const promptText = document.getElementById("promptText");
 const statusDiv = document.getElementById("status");
 const connectionDot = document.getElementById("connectionDot");
 const connectionText = document.getElementById("connectionText");
+const connectionTargetIcon = document.getElementById("connectionTargetIcon");
+const connectionTabPicker = document.getElementById("connectionTabPicker");
+const connectionTargetHint = document.getElementById("connectionTargetHint");
+const connectionBox = document.getElementById("connectionBox");
+const broadcastModeBanner = document.getElementById("broadcastModeBanner");
 const goToManagedTabBtn = document.getElementById("goToManagedTabBtn");
 const tabsToggle = document.getElementById("tabsToggle");
 const reconnectBtn = document.getElementById("reconnectBtn");
@@ -471,6 +476,8 @@ function resetComposeFormAfterAdd() {
   pauseHereAdd.checked = settings.defaultHoldBeforeSending;
   usePersonaToggle.checked = false;
   updatePersonaFieldVisibility();
+  broadcastToggle.checked = false;
+  setBroadcastPanelVisible(false);
 }
 
 function applyQueueDefaultsFromSettings() {
@@ -855,9 +862,7 @@ async function loadBroadcastTabs() {
     checkbox.type = "checkbox";
     checkbox.dataset.broadcastTab = String(tab.id);
     checkbox.checked =
-      previouslySelected.size > 0
-        ? previouslySelected.has(tab.id)
-        : tab.id === activeTab?.id;
+      previouslySelected.size > 0 ? previouslySelected.has(tab.id) : true;
 
     const textWrap = document.createElement("span");
     const site = getSiteFromUrl(tab.url);
@@ -896,28 +901,49 @@ async function broadcastToSelectedTabs(payload) {
   const tabIds = getSelectedBroadcastTabIds();
 
   if (tabIds.length === 0) {
-    setStatus("Select at least one tab for broadcast.", "red");
+    setStatus("Select at least one chat below.", "red");
     return null;
   }
 
-  let successCount = 0;
-
   for (const tabId of tabIds) {
-    const response = await sendMessageToTab(tabId, {
-      action: "add_to_queue",
-      ...payload
-    });
-
-    if (isActionSuccess(response)) {
-      successCount += 1;
-    }
+    await ensureContentScript(tabId);
   }
 
-  return { successCount, total: tabIds.length };
+  const response = await runtimeMessage({
+    action: "broadcast_prompt",
+    payload,
+    tabIds
+  });
+
+  if (!response?.ok) {
+    setStatus(response?.error || "Could not send to selected chats.", "error");
+    return null;
+  }
+
+  return {
+    successCount: response.successCount ?? 0,
+    total: response.total ?? tabIds.length
+  };
+}
+
+function updateBroadcastModeUi() {
+  const broadcastOn = broadcastToggle.checked;
+  connectionBox?.classList.toggle("broadcast-mode", broadcastOn);
+
+  if (broadcastOn) {
+    connectionTargetHint.classList.add("hidden");
+  } else if (linkedTabsCache.length > 1) {
+    connectionTargetHint.classList.remove("hidden");
+    connectionTargetHint.innerText =
+      "Tap another chat below to change where prompts are sent.";
+  } else {
+    connectionTargetHint.classList.add("hidden");
+  }
 }
 
 function setBroadcastPanelVisible(visible) {
   broadcastPanel.classList.toggle("hidden", !visible);
+  updateBroadcastModeUi();
 
   if (visible) {
     loadBroadcastTabs();
@@ -934,9 +960,72 @@ function truncate(text, max = 80) {
   return text.length > max ? `${text.substring(0, max)}...` : text;
 }
 
-function formatConnectionLabel(site, chatId) {
-  if (!chatId) return `Connected to ${site}`;
-  return `Connected to ${site} | ${chatId}`;
+function getLlmForUrl(url) {
+  if (!url) return null;
+  return SUPPORTED_LLMS.find((llm) => url.includes(llm.host)) || null;
+}
+
+function formatConnectionLabel(site) {
+  return site || "Chat";
+}
+
+function updateConnectionTargetIcon(url) {
+  const llm = getLlmForUrl(url);
+  if (!llm) {
+    connectionTargetIcon.classList.add("hidden");
+    connectionTargetIcon.removeAttribute("src");
+    return;
+  }
+
+  connectionTargetIcon.src = getLlmFaviconUrl(llm.host);
+  connectionTargetIcon.classList.remove("hidden");
+}
+
+function renderConnectionTabPicker(linked, activeTabId) {
+  connectionTabPicker.innerHTML = "";
+
+  if (linked.length <= 1) {
+    connectionTabPicker.classList.add("hidden");
+    connectionTargetHint.classList.add("hidden");
+    return;
+  }
+
+  connectionTabPicker.classList.remove("hidden");
+  connectionTargetHint.classList.remove("hidden");
+
+  linked.forEach((entry) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "connection-tab-chip";
+    chip.setAttribute("role", "tab");
+    chip.setAttribute("aria-selected", entry.tabId === activeTabId ? "true" : "false");
+    if (entry.tabId === activeTabId) chip.classList.add("active");
+
+    const llm = getLlmForUrl(entry.url);
+    if (llm) {
+      const icon = document.createElement("img");
+      icon.src = getLlmFaviconUrl(llm.host);
+      icon.alt = "";
+      icon.setAttribute("aria-hidden", "true");
+      chip.appendChild(icon);
+    }
+
+    const label = document.createElement("span");
+    label.innerText = entry.state?.site || getSiteFromUrl(entry.url);
+    chip.appendChild(label);
+
+    if (entry.tabId === activeTabId) {
+      const check = document.createElement("span");
+      check.className = "connection-tab-chip-check";
+      check.setAttribute("aria-hidden", "true");
+      check.innerText = "✓";
+      chip.appendChild(check);
+    } else {
+      chip.addEventListener("click", () => selectManagedTab(entry.tabId));
+    }
+
+    connectionTabPicker.appendChild(chip);
+  });
 }
 
 function getQueueStateSignature(state) {
@@ -1058,24 +1147,39 @@ async function selectManagedTab(tabId) {
 
 function renderConnectionBar(linked, ignoredEntries = ignoredTabsCache) {
   const managed = linked.find((entry) => entry.tabId === managedTabId);
-  const extraCount = Math.max(0, linked.length - 1) + ignoredEntries.length;
+  const ignoredCount = ignoredEntries.length;
 
   if (!managed) {
     tabsToggle.classList.add("hidden");
     linkedTabsPanel.classList.add("hidden");
+    connectionTabPicker.classList.add("hidden");
+    connectionTargetHint.classList.add("hidden");
+    connectionTargetIcon.classList.add("hidden");
     return;
   }
 
   setConnectionStatus("connected", {
     site: managed.state.site,
-    chatId: managed.state.chatId ?? null
+    chatId: managed.state.chatId ?? null,
+    url: managed.url
   });
 
-  if (extraCount > 0) {
+  renderConnectionTabPicker(linked, managedTabId);
+
+  const otherTabCount = Math.max(0, linked.length - 1);
+  const showManageToggle = otherTabCount > 0 || ignoredCount > 0;
+
+  if (showManageToggle) {
     tabsToggle.classList.remove("hidden");
-    tabsToggle.innerText = linkedTabsExpanded
-      ? `${extraCount} more ▴`
-      : `+${extraCount} tab${extraCount === 1 ? "" : "s"} ▾`;
+    if (linkedTabsExpanded) {
+      tabsToggle.innerText = "Manage tabs ▴";
+    } else if (ignoredCount > 0 && otherTabCount > 0) {
+      tabsToggle.innerText = `Manage tabs · ${ignoredCount} ignored ▾`;
+    } else if (ignoredCount > 0) {
+      tabsToggle.innerText = `Ignored (${ignoredCount}) ▾`;
+    } else {
+      tabsToggle.innerText = "Manage tabs ▾";
+    }
   } else {
     tabsToggle.classList.add("hidden");
     linkedTabsPanel.classList.add("hidden");
@@ -1084,7 +1188,7 @@ function renderConnectionBar(linked, ignoredEntries = ignoredTabsCache) {
 
   linkedTabsPanel.innerHTML = "";
 
-  if (!linkedTabsExpanded || extraCount === 0) {
+  if (!linkedTabsExpanded || !showManageToggle) {
     linkedTabsPanel.classList.add("hidden");
     return;
   }
@@ -1283,7 +1387,8 @@ async function refreshLinkedTabs({ showChecking = false } = {}) {
   } else {
     setConnectionStatus("connected", {
       site: managed.state.site,
-      chatId: managed.state.chatId ?? null
+      chatId: managed.state.chatId ?? null,
+      url: managed.url
     });
   }
 
@@ -1307,18 +1412,24 @@ function getPersonaName(personaId) {
   return personas.find((persona) => persona.id === personaId)?.name || "Persona";
 }
 
-function setConnectionStatus(status, { site = "", chatId = null } = {}) {
+function setConnectionStatus(status, { site = "", chatId = null, url = null } = {}) {
   connectionDot.classList.remove("connected", "disconnected", "checking");
 
   if (status === "connected") {
     connectionDot.classList.add("connected");
-    connectionText.innerText = formatConnectionLabel(site, chatId);
-    connectionText.title = chatId || "";
+    connectionText.innerText = formatConnectionLabel(site);
+    connectionText.title = chatId
+      ? `Chat ID: ${chatId}. Prompts you add go to this tab.`
+      : "Prompts you add from this panel go to this chat tab.";
+    updateConnectionTargetIcon(url);
     isConnected = true;
   } else if (status === "disconnected") {
     connectionDot.classList.add("disconnected");
-    connectionText.innerText = "Not connected to chat";
+    connectionText.innerText = "No chat selected";
     connectionText.title = "";
+    connectionTargetIcon.classList.add("hidden");
+    connectionTabPicker.classList.add("hidden");
+    connectionTargetHint.classList.add("hidden");
     isConnected = false;
     latestState = null;
     tabsToggle.classList.add("hidden");
@@ -1326,8 +1437,9 @@ function setConnectionStatus(status, { site = "", chatId = null } = {}) {
     renderQueue(null);
   } else {
     connectionDot.classList.add("checking");
-    connectionText.innerText = "Checking connection...";
+    connectionText.innerText = "Checking...";
     connectionText.title = "";
+    connectionTargetIcon.classList.add("hidden");
     isConnected = false;
   }
 
@@ -1703,9 +1815,17 @@ function updateControls() {
   const allowAdd = controlsOk || broadcastToggle.checked;
   queueBtn.disabled = !allowAdd;
   promptText.disabled = !allowAdd;
+
+  const targetSite =
+    state?.site ||
+    linkedTabsCache.find((entry) => entry.tabId === managedTabId)?.state?.site ||
+    "";
+
   queueBtn.innerText = broadcastToggle.checked
-    ? "Broadcast to selected"
-    : "Add to Queue";
+    ? "Send to selected chats"
+    : targetSite
+      ? `Add to ${targetSite}`
+      : "Add to Queue";
 
   clearBtn.disabled = !controlsOk || !hasQueue;
 
@@ -1926,8 +2046,8 @@ queueBtn.addEventListener("click", async () => {
       resetComposeFormAfterAdd();
     }
     setStatus(
-      `Broadcast to ${result.successCount}/${result.total} selected tab${result.total === 1 ? "" : "s"}`,
-      result.successCount > 0 ? "green" : "red"
+      `Sent to ${result.successCount}/${result.total} chat${result.total === 1 ? "" : "s"}`,
+      result.successCount > 0 ? "success" : "error"
     );
     await refreshLinkedTabs({ showChecking: false });
     return;
@@ -2005,6 +2125,7 @@ llmLauncherToggle.addEventListener("click", toggleLlmLauncher);
 updateLlmLauncher(0);
 initInfoTips();
 initSettingsCards();
+updateBroadcastModeUi();
 bindSettingsControls();
 loadSettings().then(() => loadPersonas());
 refreshLinkedTabs({ showChecking: true });
