@@ -123,40 +123,6 @@ globalThis.LLM_PLATFORMS = (() => {
         const match = pathname.match(/\/a\/chat\/s\/([a-z0-9-]+)/i);
         return match ? match[1] : null;
       }
-    },
-    perplexity: {
-      id: "perplexity",
-      name: "Perplexity",
-      host: "perplexity.ai",
-      editor: [
-        'div[contenteditable="true"][role="textbox"]',
-        'textarea[placeholder*="Ask" i]',
-        'textarea[placeholder*="Search" i]',
-        'textarea[placeholder*="Message" i]',
-        "textarea"
-      ],
-      stopButton: [
-        'button[aria-label*="Stop" i]',
-        'button[aria-label*="Cancel" i]',
-        'button[aria-label*="Pause" i]'
-      ],
-      sendButton: [
-        'button[aria-label="Submit"]',
-        'button[aria-label*="Submit" i]',
-        'button[aria-label*="Send" i]',
-        'button[aria-label*="Search" i]',
-        'button[type="submit"]'
-      ],
-      visibleEditor: true,
-      inputType: "lexical",
-      enterOnSend: true,
-      getChatId(pathname) {
-        const searchMatch = pathname.match(/\/search\/([^/?#]+)/i);
-        if (searchMatch) return searchMatch[1];
-
-        const pageMatch = pathname.match(/\/p\/([^/?#]+)/i);
-        return pageMatch ? pageMatch[1] : null;
-      }
     }
   };
 
@@ -476,11 +442,7 @@ globalThis.LLM_PLATFORMS = (() => {
 
     const sendBtn = await waitForEnabledSendButton(platform);
     if (!sendBtn) {
-      if (
-        platform.id === "chatgpt" ||
-        isTextareaEditor(editor) ||
-        platform.enterOnSend
-      ) {
+      if (platform.id === "chatgpt" || isTextareaEditor(editor)) {
         editor.dispatchEvent(
           new KeyboardEvent("keydown", {
             bubbles: true,

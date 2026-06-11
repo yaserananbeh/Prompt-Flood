@@ -5,8 +5,7 @@ const SUPPORTED_HOSTS = [
   "gemini.google.com",
   "claude.ai",
   "kimi.com",
-  "chat.deepseek.com",
-  "perplexity.ai"
+  "chat.deepseek.com"
 ];
 const IGNORED_TABS_KEY = "ignoredTabIds";
 const SETTINGS_KEY = "extensionSettings";
@@ -74,13 +73,6 @@ const SUPPORTED_LLMS = [
     url: "https://chat.deepseek.com/",
     host: "chat.deepseek.com",
     accent: "#4d6bfe"
-  },
-  {
-    id: "perplexity",
-    name: "Perplexity",
-    url: "https://www.perplexity.ai/",
-    host: "perplexity.ai",
-    accent: "#20808d"
   }
 ];
 
@@ -779,7 +771,6 @@ function getSiteFromUrl(url) {
   if (url.includes("claude.ai")) return "Claude";
   if (url.includes("kimi.com")) return "Kimi";
   if (url.includes("chat.deepseek.com")) return "DeepSeek";
-  if (url.includes("perplexity.ai")) return "Perplexity";
   return "Unknown";
 }
 
@@ -810,14 +801,6 @@ function getChatIdFromUrl(url) {
     if (url.includes("chat.deepseek.com")) {
       const match = pathname.match(/\/a\/chat\/s\/([a-z0-9-]+)/i);
       return match ? match[1] : null;
-    }
-
-    if (url.includes("perplexity.ai")) {
-      const searchMatch = pathname.match(/\/search\/([^/?#]+)/i);
-      if (searchMatch) return searchMatch[1];
-
-      const pageMatch = pathname.match(/\/p\/([^/?#]+)/i);
-      return pageMatch ? pageMatch[1] : null;
     }
   } catch (_error) {
     return null;

@@ -22,8 +22,7 @@ const SUPPORTED_HOSTS = [
   "gemini.google.com",
   "claude.ai",
   "kimi.com",
-  "chat.deepseek.com",
-  "perplexity.ai"
+  "chat.deepseek.com"
 ];
 
 function isSupportedUrl(url) {

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Prompt Flood",
-  "version": "2.5.1",
-  "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, DeepSeek, and Perplexity. Personas, checkpoints, history.",
+  "version": "2.5.2",
+  "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, and DeepSeek. Personas, checkpoints, history.",
   "permissions": ["activeTab", "scripting", "sidePanel", "tabs", "storage"],
   "host_permissions": [
     "*://chatgpt.com/*",
@@ -11,9 +11,7 @@
     "*://claude.ai/*",
     "*://kimi.com/*",
     "*://www.kimi.com/*",
-    "*://chat.deepseek.com/*",
-    "*://perplexity.ai/*",
-    "*://www.perplexity.ai/*"
+    "*://chat.deepseek.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -43,9 +41,7 @@
         "*://claude.ai/*",
         "*://kimi.com/*",
         "*://www.kimi.com/*",
-        "*://chat.deepseek.com/*",
-        "*://perplexity.ai/*",
-        "*://www.perplexity.ai/*"
+        "*://chat.deepseek.com/*"
       ],
       "js": ["platforms.js", "content.js"],
       "run_at": "document_idle"
