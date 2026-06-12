@@ -1,5 +1,5 @@
 (() => {
-  const CONTENT_VERSION = 11;
+  const CONTENT_VERSION = 15;
 
   if (!globalThis.LLM_PLATFORMS) {
     console.error("Prompt Flood: platforms.js must load before content.js.");
@@ -21,103 +21,31 @@
   let isPaused = false;
   let pauseReason = null;
   let lastError = null;
-  const attachmentCache = new Map();
+  let queueProcessingPromise = null;
+  let queueGeneration = 0;
 
-  function normalizeBinaryData(data) {
-    if (data instanceof ArrayBuffer) {
-      return new Uint8Array(data);
-    }
-
-    if (ArrayBuffer.isView(data)) {
-      return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-    }
-
-    if (Array.isArray(data)) {
-      return Uint8Array.from(data);
-    }
-
-    return null;
+  function bumpQueueGeneration() {
+    queueGeneration += 1;
   }
 
-  function bytesToFile(entry) {
-    const bytes = normalizeBinaryData(entry.data);
-    if (!bytes || !entry.name || !entry.mimeType) {
-      return null;
-    }
-
-    return new File([bytes], entry.name, {
-      type: entry.mimeType,
-      lastModified: Date.now()
-    });
+  function isQueueRunCurrent(generation) {
+    return generation === queueGeneration;
   }
 
-  function cacheAttachmentBytes(entries) {
-    if (!Array.isArray(entries)) return;
-
-    for (const entry of entries) {
-      if (!entry?.id || entry.data == null) continue;
-
-      attachmentCache.set(entry.id, {
-        id: entry.id,
-        name: entry.name,
-        mimeType: entry.mimeType,
-        data: entry.data
-      });
-    }
+  function shouldAbortQueueRun(generation) {
+    return !isQueueRunCurrent(generation) || promptQueue.length === 0;
   }
 
-  function fetchAttachmentsFromBackground(ids) {
-    if (!ids.length) return Promise.resolve([]);
-
-    return new Promise((resolve) => {
-      const attempt = (retriesLeft) => {
-        chrome.runtime.sendMessage({ action: "get_attachments", ids }, (response) => {
-          if (!chrome.runtime.lastError && response?.ok && response.attachments?.length) {
-            cacheAttachmentBytes(response.attachments);
-            resolve(response.attachments);
-            return;
-          }
-
-          if (retriesLeft <= 0) {
-            resolve([]);
-            return;
-          }
-
-          setTimeout(() => attempt(retriesLeft - 1), 250);
-        });
-      };
-
-      attempt(3);
-    });
+  function shouldReportQueueError(generation) {
+    return isQueueRunCurrent(generation) && promptQueue.length > 0;
   }
 
-  function normalizeAttachments(attachments) {
-    if (!Array.isArray(attachments)) return [];
-
-    return attachments
-      .map((entry) => {
-        if (!entry?.id || !entry?.name || !entry?.mimeType) return null;
-
-        return {
-          id: entry.id,
-          name: entry.name,
-          mimeType: entry.mimeType,
-          size: Number(entry.size) || 0
-        };
-      })
-      .filter(Boolean);
-  }
-
-  function createQueueItem(
-    text,
-    { pauseAfter = false, personaId = null, attachments = [] } = {}
-  ) {
+  function createQueueItem(text, { pauseAfter = false, personaId = null } = {}) {
     return {
       id: crypto.randomUUID(),
       text: (text || "").trim(),
       pauseAfter: Boolean(pauseAfter),
-      personaId: personaId || null,
-      attachments: normalizeAttachments(attachments)
+      personaId: personaId || null
     };
   }
 
@@ -134,84 +62,8 @@
       id: item.id || crypto.randomUUID(),
       text: item.text.trim(),
       pauseAfter: Boolean(item.pauseAfter),
-      personaId: item.personaId || null,
-      attachments: normalizeAttachments(item.attachments)
+      personaId: item.personaId || null
     };
-  }
-
-  function getAttachmentIds(item) {
-    return (item.attachments || []).map((entry) => entry.id);
-  }
-
-  function deleteStoredAttachments(ids) {
-    if (!ids.length) return Promise.resolve();
-
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: "delete_attachments", ids }, () => resolve());
-    });
-  }
-
-  function cloneStoredAttachments(attachments) {
-    if (!attachments?.length) return Promise.resolve([]);
-
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        { action: "clone_attachments", attachments },
-        (response) => {
-          if (chrome.runtime.lastError || !response?.ok) {
-            resolve([]);
-            return;
-          }
-
-          resolve(normalizeAttachments(response.attachments));
-        }
-      );
-    });
-  }
-
-  async function releaseQueueItemAttachments(item) {
-    for (const id of getAttachmentIds(item)) {
-      attachmentCache.delete(id);
-    }
-
-    await deleteStoredAttachments(getAttachmentIds(item));
-  }
-
-  async function fetchAttachmentFiles(attachments) {
-    const refs = normalizeAttachments(attachments);
-    if (!refs.length) return [];
-
-    const missingIds = refs
-      .filter((entry) => !attachmentCache.has(entry.id))
-      .map((entry) => entry.id);
-
-    if (missingIds.length) {
-      await fetchAttachmentsFromBackground(missingIds);
-    }
-
-    const files = [];
-
-    for (const ref of refs) {
-      const cached = attachmentCache.get(ref.id);
-      if (!cached) continue;
-
-      const file = bytesToFile({
-        ...cached,
-        name: ref.name || cached.name,
-        mimeType:
-          ref.mimeType ||
-          cached.mimeType ||
-          ((ref.name || cached.name || "").toLowerCase().endsWith(".pdf")
-            ? "application/pdf"
-            : "")
-      });
-
-      if (file) {
-        files.push(file);
-      }
-    }
-
-    return files;
   }
 
   function getPlatform() {
@@ -372,26 +224,17 @@
     switch (request.action) {
       case "add_to_queue": {
         const prompt = request.prompt?.trim() || "";
-        const attachments = normalizeAttachments(request.attachments);
 
-        if (!prompt && !attachments.length) {
-          return errorResponse("Prompt or attachment is required.");
+        if (!prompt) {
+          return errorResponse("Prompt is required.");
         }
-
-        const platform = getPlatform();
-        if (attachments.length && !platform?.supportsAttachments) {
-          return errorResponse("Attachments are only supported on ChatGPT, Gemini, and Claude.");
-        }
-
-        cacheAttachmentBytes(request.attachmentBytes);
 
         const wasEmpty = promptQueue.length === 0;
 
         promptQueue.push(
           createQueueItem(prompt, {
             pauseAfter: request.pauseAfter,
-            personaId: request.personaId,
-            attachments
+            personaId: request.personaId
           })
         );
         await persistState();
@@ -416,8 +259,12 @@
           return errorResponse("Invalid queue index.");
         }
 
-        const [removedItem] = promptQueue.splice(index, 1);
-        await releaseQueueItemAttachments(removedItem);
+        promptQueue.splice(index, 1);
+
+        if (index === 0) {
+          bumpQueueGeneration();
+          isProcessing = false;
+        }
 
         if (promptQueue.length === 0) {
           isProcessing = false;
@@ -506,8 +353,7 @@
 
         const copy = {
           ...promptQueue[index],
-          id: crypto.randomUUID(),
-          attachments: await cloneStoredAttachments(promptQueue[index].attachments)
+          id: crypto.randomUUID()
         };
         promptQueue.splice(index + 1, 0, copy);
         await persistState();
@@ -522,10 +368,8 @@
           return errorResponse("Invalid queue index.");
         }
 
-        const attachments = promptQueue[index].attachments || [];
-
-        if (!prompt && !attachments.length) {
-          return errorResponse("Prompt or attachment is required.");
+        if (!prompt) {
+          return errorResponse("Prompt is required.");
         }
 
         if (isProcessing && index === 0) {
@@ -554,10 +398,7 @@
       }
 
       case "clear_queue": {
-        for (const item of promptQueue) {
-          await releaseQueueItemAttachments(item);
-        }
-
+        bumpQueueGeneration();
         promptQueue = [];
         isProcessing = false;
         isPaused = false;
@@ -647,91 +488,130 @@
   }
 
   async function processQueue() {
-    if (isPaused || promptQueue.length === 0) {
-      isProcessing = false;
-      await persistState();
-      return;
+    if (queueProcessingPromise) {
+      return queueProcessingPromise;
     }
 
-    const platform = getPlatform();
-    if (!platform) {
-      lastError = "Unsupported chat page.";
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    isProcessing = true;
-    lastError = null;
-    await persistState();
+    queueProcessingPromise = runQueueLoop();
 
     try {
-      await waitForReadyState(platform);
-    } catch (error) {
-      lastError = error.message;
-      isProcessing = false;
-      await persistState();
-      return;
+      await queueProcessingPromise;
+    } finally {
+      queueProcessingPromise = null;
     }
+  }
 
-    if (isPaused || promptQueue.length === 0) {
-      isProcessing = false;
-      await persistState();
-      return;
-    }
+  async function runQueueLoop() {
+    const generation = queueGeneration;
 
-    const currentItem = promptQueue[0];
-    const wrappedText = await wrapWithPersona(currentItem.text, currentItem.personaId);
-    const attachmentFiles = await fetchAttachmentFiles(currentItem.attachments);
-
-    if (currentItem.attachments?.length && !attachmentFiles.length) {
-      lastError = "Failed to load attachments. Try removing and re-adding the prompt.";
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    const success = await sendPrompt(platform, wrappedText, { files: attachmentFiles });
-
-    if (!success) {
-      lastError = "Failed to send prompt. Check the chat page or use Retry.";
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    const sentItem = promptQueue.shift();
-    await releaseQueueItemAttachments(sentItem);
-    lastError = null;
-    await persistState();
-
-    if (promptQueue.length === 0) {
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    try {
-      await waitForReadyState(platform);
-    } catch (error) {
-      lastError = error.message;
-      isProcessing = false;
-      await persistState();
-      return;
-    }
-
-    if (sentItem.pauseAfter) {
-      isPaused = true;
-      pauseReason = "checkpoint";
-      isProcessing = false;
-      const settings = await getExtensionSettings();
-      if (settings.checkpointSound) {
-        playCheckpointChime();
+    while (true) {
+      if (shouldAbortQueueRun(generation) || isPaused) {
+        isProcessing = false;
+        await persistState();
+        return;
       }
-      await persistState();
-      return;
-    }
 
-    processQueue();
+      const platform = getPlatform();
+      if (!platform) {
+        if (shouldReportQueueError(generation)) {
+          lastError = "Unsupported chat page.";
+        }
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      isProcessing = true;
+      lastError = null;
+      await persistState();
+
+      try {
+        await waitForReadyState(platform);
+      } catch (error) {
+        if (shouldReportQueueError(generation)) {
+          lastError = error.message;
+        }
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      if (shouldAbortQueueRun(generation) || isPaused) {
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      const currentItem = promptQueue[0];
+      if (!currentItem) {
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      const wrappedText = await wrapWithPersona(currentItem.text, currentItem.personaId);
+
+      if (!wrappedText.trim()) {
+        promptQueue.shift();
+        await persistState();
+        continue;
+      }
+
+      const success = await sendPrompt(platform, wrappedText);
+
+      if (shouldAbortQueueRun(generation)) {
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      if (!success) {
+        if (shouldReportQueueError(generation)) {
+          lastError = "Failed to send prompt. Check the chat page or use Retry.";
+        }
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      if (shouldAbortQueueRun(generation)) {
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      const sentItem = promptQueue.shift();
+      lastError = null;
+      await persistState();
+
+      if (promptQueue.length === 0) {
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      try {
+        await waitForReadyState(platform);
+      } catch (error) {
+        if (shouldReportQueueError(generation)) {
+          lastError = error.message;
+        }
+        isProcessing = false;
+        await persistState();
+        return;
+      }
+
+      if (sentItem?.pauseAfter) {
+        isPaused = true;
+        pauseReason = "checkpoint";
+        isProcessing = false;
+        const settings = await getExtensionSettings();
+        if (settings.checkpointSound) {
+          playCheckpointChime();
+        }
+        await persistState();
+        return;
+      }
+    }
   }
 })();

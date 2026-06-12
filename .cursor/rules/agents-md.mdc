@@ -1,0 +1,17 @@
+---
+description: Keep AGENTS.md accurate after code changes
+alwaysApply: true
+---
+
+# AGENTS.md maintenance
+
+When you finish a task that adds, removes, or moves source files or user-facing features:
+
+1. **Auto-sync** (file map + load order): run `node scripts/sync-agents-map.mjs` or `npm run sync-agents`
+2. **Manual table** in `AGENTS.md` section “Where do I change X?” — add/update rows for new features
+3. **`scripts/script-manifest.mjs`** — update `POPUP_SCRIPTS` or `PLATFORM_SOURCE_PARTS` when adding modules
+4. **`FILE_DESCRIPTIONS`** in `scripts/sync-agents-map.mjs` — add a one-line description for new files
+
+If you edited `src/platforms/*`, run `npm run build` before finishing.
+
+Do not edit `platforms.js` directly.

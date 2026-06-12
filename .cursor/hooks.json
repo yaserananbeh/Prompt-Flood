@@ -14,6 +14,9 @@
     "stop": [
       {
         "command": "node .cursor/hooks/promptrecorder-capture-lifecycle.mjs"
+      },
+      {
+        "command": "node .cursor/hooks/sync-agents-on-stop.mjs"
       }
     ]
   }

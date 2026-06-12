@@ -106,7 +106,7 @@ Work across several LLM tabs without confusion.
 
 - Connection bar shows **Sending prompts to** with site name and chat ID
 - Tab chips let you pick send targets; right-click a chip to ignore that tab
-- **Showing queue for** picker switches which tab's queue you are viewing
+- **Filter by chat** picker shows all queues by default; click a chat to filter to that tab only
 - **Go to tab** buttons jump you to the relevant chat in the browser
 - **Ignored (N)** expander lists hidden tabs with per-tab **Restore**
 - Checkpoint tabs are prioritized automatically so you do not miss a paused workflow
@@ -215,20 +215,23 @@ With **Pause here** on Prompt 1, the queue stops after the summary so you can re
 
 ```
 app/
-├── manifest.json      # Extension manifest (MV3, side panel)
-├── background.js      # Personas, broadcast relay, tab messaging
-├── platforms.js       # Platform adapters (ChatGPT, Gemini, Claude, Kimi, DeepSeek)
-├── content.js         # Per-tab queue engine, checkpoints, persistence
-├── popup.html         # Side panel UI
-├── popup.js           # Side panel logic and tab manager
-└── assets/            # Logo and extension icons
+├── AGENTS.md              # Agent/developer map (start here for code changes)
+├── manifest.json          # Extension manifest (MV3, side panel)
+├── background.js          # Personas, broadcast relay, tab messaging
+├── platforms.js           # Built from src/platforms/ (run npm run build)
+├── src/platforms/         # LLM DOM adapters (edit these, not platforms.js)
+├── content.js             # Per-tab queue engine, checkpoints, persistence
+├── popup.html             # Side panel UI + CSS
+├── popup/                 # Side panel logic (11 modules, load order in scripts/)
+├── scripts/               # build.mjs, sync-agents-map.mjs, script-manifest.mjs
+└── assets/                # Logo and extension icons
 ```
 
 ### How it fits together
 
 ```
 ┌─────────────┐     relay_to_tab      ┌──────────────┐     sendMessage     ┌─────────────┐
-│  popup.js   │ ────────────────────► │ background.js│ ──────────────────► │  content.js │
+│  popup/*    │ ────────────────────► │ background.js│ ──────────────────► │  content.js │
 │ (side panel)│                       │ (service     │                     │ (per tab)   │
 └─────────────┘                       │  worker)     │                     └─────────────┘
                                       └──────────────┘                            │
@@ -286,7 +289,16 @@ No data is sent to external servers. Everything stays in your browser via `chrom
 
 ## Contributing
 
-Issues and pull requests are welcome. When adding a new platform, extend `platforms.js` with editor selectors, send logic, and ready-state detection, then add the host to `manifest.json`.
+Issues and pull requests are welcome. See **`AGENTS.md`** for the file map and where to change each feature.
+
+When adding a new platform:
+
+1. Add selectors and config in `src/platforms/config.js`
+2. Add any platform-specific send logic under `src/platforms/`
+3. Run `npm run build` to regenerate `platforms.js`
+4. Add the host to `manifest.json`
+
+After moving or adding source files, run `npm run sync-agents` to refresh the auto-generated sections of `AGENTS.md`.
 
 ---
 

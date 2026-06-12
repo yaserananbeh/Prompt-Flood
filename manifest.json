@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Prompt Flood",
-  "version": "2.6.0",
-  "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, and DeepSeek. Attach images/PDFs, personas, checkpoints.",
+  "version": "2.6.3",
+  "description": "Queue, pause, and broadcast prompts across ChatGPT, Gemini, Claude, Kimi, and DeepSeek. Personas, checkpoints, multi-tab send.",
   "permissions": ["activeTab", "scripting", "sidePanel", "tabs", "storage"],
   "host_permissions": [
     "*://chatgpt.com/*",

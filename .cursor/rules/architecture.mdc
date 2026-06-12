@@ -1,0 +1,35 @@
+---
+description: Prompt Flood codebase map — read before exploring
+alwaysApply: true
+---
+
+# Prompt Flood architecture
+
+**Read `AGENTS.md` first.** Do not broad-search the repo for feature locations.
+
+## Source layout
+
+- `popup/` — side panel modules (load order in `scripts/script-manifest.mjs`)
+- `src/platforms/` — LLM DOM automation sources → `node scripts/build.mjs` → `platforms.js`
+- `content.js` — per-tab queue runner
+- `background.js` — relay + personas storage
+
+## Quick routing
+
+| Task | File |
+|------|------|
+| Queue list / filter UI | `popup/09-queue.js` |
+| Connection bar / multi-tab | `popup/07-connection.js` |
+| Compose prompt + submit | `popup/11-init.js` + `popup.html` |
+| Queue runner / errors | `content.js` |
+| Gemini/ChatGPT selectors | `src/platforms/config.js` |
+| Text inject + send | `src/platforms/send.js`, `prompt-inject.js` |
+
+## Required after changes
+
+1. Edited `src/platforms/*` → run `node scripts/build.mjs`
+2. Added/moved popup or platform files → update `scripts/script-manifest.mjs` + run `node scripts/sync-agents-map.mjs`
+3. New user-facing feature → add a row to the manual table in `AGENTS.md` (“Where do I change X?”)
+4. Bump `CONTENT_VERSION` in `content.js` and `popup/01-constants.js` when content-script behavior changes
+
+`AGENTS.md` file map and load order are auto-synced on agent stop via `.cursor/hooks/sync-agents-on-stop.mjs`.

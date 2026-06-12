@@ -1,0 +1,9 @@
+{
+  "name": "prompt-flood",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "sync-agents": "node scripts/sync-agents-map.mjs",
+    "postbuild": "node scripts/sync-agents-map.mjs"
+  }
+}
